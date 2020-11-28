@@ -2,10 +2,6 @@
 
 a hobbyist language intended to basically be eager haskell.
 
-Will be interpreted in the short term, but as it will be compiled to the untyped lambda calculus before execution,
-moving to a compiler should be relatively simple.
-As it stands, things like closures and the name-capture problem are dealt with at the meta-language level,
-and those issues would need to be dealt with if/when this project becomes a compiled language. 
 
 I'm going to be reading (and most likely loosely following) the book [The implementation of functional programming languages by Simon Peyton Jones](https://www.microsoft.com/en-us/research/publication/the-implementation-of-functional-programming-languages/ )
 as I go along.
@@ -36,3 +32,5 @@ misc. feature ideas:
 Honestly I haven't used haskell enough to find any pain points that seem addressable and not dealt with by compiler extensions. 
 Nothing really bugs me about the language.
 Interested other people's issues with the language that still involve remaining purely functional, and keeping HM types.
+
+Shout out to [plzoo]( https://github.com/andrejbauer/plzoo ) and [elaborationzoo]( https://github.com/AndrasKovacs/elaboration-zoo ), both of which were used as references for various parts of implementation.

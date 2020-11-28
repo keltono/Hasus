@@ -28,7 +28,8 @@ typeInfer (App e1 e2) env = do
   (env', ty1) <- typeInfer e1 env
   (env'', ty2) <- typeInfer e2 env'
   case ty1 of
-    Arrow (Tyvar a) (Tyvar b) -> if a == b then return (env'', ty2) else Left "HUH?"
+    -- makes sense in theory, but haskell doesn't stop this so it probably has a purpose
+    -- Arrow (Tyvar a) (Tyvar b) -> if a == b then return (env'', ty2) else Left "HUH?"
 
     Arrow (Tyvar a) ft2       -> return (env'', typeSub (Tyvar a) ty2 ft2)
      
@@ -114,9 +115,31 @@ typeInfer (Var x) env =
 typeInfer (Let f x b) env = do
   (_,ty) <- typeInfer x env
   typeInfer b $ (Var f,ty):env
+--TODO test?
+typeInfer (Letrec f x b) env = do
+  (_,ty) <- typeInfer x ((Var f,getFreshTyVar env):env)
+  typeInfer b ((Var f, ty):env)
+
+-- TODO ite contrains tyvars to bools/the same type as the other branch
+typeInfer (IfThenElse c t e) env = -- do 
+  -- (_,cty) <- typeInfer c env
+  -- (_,ty) <- typeInfer t env
+  -- (_,ty') <- typeInfer e env
+  typeInfer iteAppArgs iteAppEnv
+    where
+      iteAppArgs :: Expr 
+      iteAppArgs =
+        App (App (App itename c) t) e
+      iteAppEnv :: Env
+      iteAppEnv = 
+        let newTyvar = getFreshTyVar env in
+            ((itename,Arrow Boolean (Arrow newTyvar (Arrow newTyvar newTyvar))):env)
+      itename = getFreshVar env
+  
 
 typeInfer (Char _) env = return (env, Character)
-typeInfer (Int _) env =  return (env, Integer)
+typeInfer (Int _) env  = return (env, Integer)
+typeInfer (Bool _) env = return (env, Boolean)
 
 --helper functions
 --assumes ($1,_) `elem` $3
@@ -167,6 +190,18 @@ getFreshTyVar e =
     where
       -- succ '`' == 'a'
       larger = succ $ foldl' max '`' $ mapMaybe (getTyvarString . snd) e
+getFreshVar :: Env -> Expr
+getFreshVar env = 
+  let vars = filter isVar env in
+      Var (foldl' longest "f" (map (\(Var x,_) -> x) vars) ++ "'")
+    where
+      isVar (Var _,_) = True
+      isVar _       = False
+      longest :: String -> String -> String
+      longest x y = if length x > length y then x else y
+
+  
+  
 
 replaceType :: Env -> Expr -> Type -> Env
 replaceType env expr t = 
@@ -199,3 +234,6 @@ eId = Lam "x" (Var "x")
 wrong :: Expr
 wrong = App (Lam "x" (App (App (Var "x") (Int 1)) (Int 2))) (Var "+")
 wrong' = Lam "x" (App (App (Var "x") (Int 1)) (Int 2))
+
+letrecTest :: Expr
+letrecTest = Letrec "f" (Lam "x" (App (Var "f") (Var "x"))) (App (Var "f") (Int 2))
