@@ -5,6 +5,9 @@ module Eval where
 import Expr 
 import Type
 import Data.Maybe (fromJust)
+-- import Debug.Trace
+import System.IO.Unsafe
+import GHC.Stack
 
 data Val 
   = VVar String
@@ -58,8 +61,6 @@ quote ns = \case
   VBool b                -> Bool b
   VChar c                -> Char c
   VInt i                 -> Int i
-ti' = ti
-
 nf' :: Env' -> Expr -> Expr
 nf' env = quote (map fst env) . eval env
 
@@ -67,7 +68,38 @@ nf :: Expr -> Env' -> Expr
 nf a b = nf' b a
 
 interpret :: Expr -> Env' -> Either String Expr
-interpret expr env = 
-  case typeInfer expr [] of
-    Left e -> Left e
-    Right _ -> Right $ nf expr env
+interpret expr env =
+  let !_ = unsafePerformIO currentCallStack in  env' >>= \env' -> typeInfer expr (env'<>startEnv) >> return (nf expr (env<>startEnv'))
+  where 
+    env' :: Either String Env
+    env' = 
+      -- assumption: expressions in the enviroment can only depend on things later in the list
+      let (names,values) = unzip env in
+        let temp = reverse $  zip (map Var names) $ map (quote names) values  in 
+            typeInferBatch temp [] >>= \e -> return e
+          
+typeInferBatch ((var,val):env') env = 
+  typeInfer val env >>= \(_,ty) -> typeInferBatch env' ((var,ty):env)
+typeInferBatch [] env = return env
+
+startEnv' :: Env' 
+startEnv' = [("+",plus),("-",minus),("*",times),("==",eq)]
+startEnv :: Env
+startEnv = [(Var "+",Arrow Integer (Arrow Integer Integer)),(Var "-",Arrow Integer (Arrow Integer Integer)),(Var "*",Arrow Integer (Arrow Integer Integer)),(Var "==",Arrow (Tyvar 'a') (Arrow (Tyvar 'a') Boolean))]
+
+plus :: Val
+plus = VLam "x" (\(VInt xi) -> VLam "y" (\(VInt yi) ->  VInt $ xi + yi))
+minus :: Val
+minus = VLam "x" (\(VInt xi) -> VLam "y" (\(VInt yi) ->  VInt $ xi - yi))
+times :: Val
+times = VLam "x" (\(VInt xi) -> VLam "y" (\(VInt yi) ->  VInt $ xi * yi))
+eq :: Val
+eq = VLam "x" (\x -> VLam "y" (\y ->  
+  case (x,y) of 
+    (VInt xi, VInt yi)   -> VBool $ xi == yi
+    (VBool xi, VBool yi) -> VBool $ xi == yi
+    (VChar xi, VChar yi) -> VBool $ xi == yi
+ ))
+
+letRecTest :: Expr
+letRecTest = Letrec "f" (Lam "x" (IfThenElse (App (App (Var "==") (Var "x")) (Int 0)) (Int 1) (App (App (Var "*") (Var "x")) (App (Var "f") (App (App (Var "-") (Var "x")) (Int 1)))))) (App (Var "f") (Int 3))
