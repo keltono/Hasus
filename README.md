@@ -8,11 +8,8 @@ as I go along.
 
 Features/TODOs:
 - [x] HM type inference
-- [ ] letrecs/recusion
-  - [ ] Using the Y combinator
-  - [ ] Using something more effecient (super combinators?)
-- [ ] Compilation of enriched lambda calculus terms to untyped lambda calculus
-- [ ] Evaluation/Beta reduction
+- [x] letrecs/recusion
+- [x] Evaluation/Beta reduction
 - [ ] Parsing
 - [ ] top level binds (ability to define functions not in a let expression)
 - [ ] Algebriac data types
