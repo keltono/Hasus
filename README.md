@@ -10,8 +10,11 @@ Features/TODOs:
 - [x] HM type inference
 - [x] letrecs/recusion
 - [x] Evaluation/Beta reduction
-- [ ] Parsing
+- [x] Parsing
+  - [ ] math operators
+  - [ ] general infix operators
 - [ ] top level binds (ability to define functions not in a let expression)
+  - currently just evaluates one expression
 - [ ] Algebriac data types
 - [ ] Pattern Matching
 - [ ] Haskell-style module system

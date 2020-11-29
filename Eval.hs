@@ -32,8 +32,8 @@ eval env = \case
       VBool True  -> eval env t
       VBool False -> eval env e
   Letrec f !x b     -> 
-    --TODO this is sus
-    -- this might not loop forever b/c lazyness? not sure
+    -- laziness saves the day!
+    -- (well, mostly. This is obviously not that difficult to simulate in ocaml)
     let env'  = (f, eval env' x):env in
         eval env' b
 
@@ -101,5 +101,4 @@ eq = VLam "x" (\x -> VLam "y" (\y ->
     (VChar xi, VChar yi) -> VBool $ xi == yi
  ))
 
-letRecTest :: Expr
-letRecTest = Letrec "f" (Lam "x" (IfThenElse (App (App (Var "==") (Var "x")) (Int 0)) (Int 1) (App (App (Var "*") (Var "x")) (App (Var "f") (App (App (Var "-") (Var "x")) (Int 1)))))) (App (Var "f") (Int 3))
+frac arg = interpret (Letrec "f" (Lam "x" (IfThenElse (App (App (Var "==") (Var "x")) (Int 0)) (Int 1) (App (App (Var "*") (Var "x")) (App (Var "f") (App (App (Var "-") (Var "x")) (Int 1)))))) (App (Var "f") (Int arg))) []

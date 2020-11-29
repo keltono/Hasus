@@ -39,4 +39,3 @@ instance Show Expr where
   show (Var string)   = string
   show (Letrec f e b) = "let rec " ++ f ++ " = " ++ show e ++ " in " ++ show b
   show (IfThenElse c t e) = "if " ++ show c ++ " then " ++ show t ++ " else " ++ show e
-
