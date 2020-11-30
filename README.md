@@ -15,6 +15,8 @@ Features/TODOs:
   - [ ] general infix operators
 - [ ] top level binds (ability to define functions not in a let expression)
   - currently just evaluates one expression
+- [ ] Lists
+- [ ] Tuples
 - [ ] Algebriac data types
 - [ ] Pattern Matching
 - [ ] Haskell-style module system

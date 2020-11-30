@@ -2,6 +2,11 @@ module Parse where
 import Expr
 import Text.Parsec
 
+-- TODO it never parses applications now??!?!? 
+-- it was working earlier and i didn't think anything had changed....
+-- bruh
+-- going to hope this is a whitespace issue
+
 ws :: Parsec String u ()
 -- TODO add comments
 -- that was giving me issues for some reason...
@@ -69,15 +74,20 @@ parseBool =
 
 --TODO escape Characters
 parseChar :: Parsec String u Expr
-parseChar = char '\'' >> noneOf "\'" >>= \c -> char '\'' >> return (Char c)
+parseChar = char '\'' >> Char <$> (noneOf "\'" <* char '\'')
 
 parseInt :: Parsec String u Expr
 parseInt = many1 digit >>= \i -> return $ Int $ read i
 
 parseApp :: Parsec String u Expr
-parseApp = foldl1 App <$> many1 parseAtom
+parseApp = foldl1 App <$> many1 (parseAtom <* ws)
 
-parseAtom = Var <$> parseId  <|> between (char '(') (char ')') parseExpr
+parseAtom = Var <$> parseId  <|> between (char '(') (char ')') parseExpr <|> parseChar <|> parseInt <|> parseBool
 
 parseExpr :: Parsec String u Expr
-parseExpr = (ws >> char '(' >> parseExpr >>= \e -> char ')' >> ws >> return e) <|> (ws >> choice [parseLambda, parseLet, parseLetRec, parseIfThenElse, parseBool, parseChar, parseInt, parseApp, parseAtom]>>= \c -> ws >> return c)
+parseExpr = 
+  ws >> 
+    choice [parseApp, parseLambda, parseLet, parseLetRec, parseIfThenElse, parseAtom] --, parseAtom]
+        <* ws
+    -- <|>
+  -- (ws >> char '(' >> parseExpr >>= \e -> char ')' >> ws >> return e) 

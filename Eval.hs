@@ -88,17 +88,37 @@ startEnv :: Env
 startEnv = [(Var "+",Arrow Integer (Arrow Integer Integer)),(Var "-",Arrow Integer (Arrow Integer Integer)),(Var "*",Arrow Integer (Arrow Integer Integer)),(Var "==",Arrow (Tyvar 'a') (Arrow (Tyvar 'a') Boolean))]
 
 plus :: Val
-plus = VLam "x" (\(VInt xi) -> VLam "y" (\(VInt yi) ->  VInt $ xi + yi))
+plus = VLam "x" (\x ->
+       VLam "y" (\y ->
+         -- breaks on quotation w/o this
+         case (x,y) of 
+           (VInt xi, VInt yi) -> VInt $ xi + yi
+           (_,_)              -> VInt   42
+         ))
 minus :: Val
-minus = VLam "x" (\(VInt xi) -> VLam "y" (\(VInt yi) ->  VInt $ xi - yi))
+minus = VLam "x" (\x ->
+       VLam "y" (\y ->
+         -- breaks on quotation w/o this
+         case (x,y) of 
+           (VInt xi, VInt yi) -> VInt $ xi - yi
+           (_,_)              -> VInt   43
+         ))
 times :: Val
-times = VLam "x" (\(VInt xi) -> VLam "y" (\(VInt yi) ->  VInt $ xi * yi))
+times = VLam "x" (\x ->
+       VLam "y" (\y ->
+         -- breaks on quotation w/o this
+         case (x,y) of 
+           (VInt xi, VInt yi) -> VInt $ xi * yi
+           (_,_)              -> VInt   44
+         ))
 eq :: Val
 eq = VLam "x" (\x -> VLam "y" (\y ->  
   case (x,y) of 
     (VInt xi, VInt yi)   -> VBool $ xi == yi
     (VBool xi, VBool yi) -> VBool $ xi == yi
     (VChar xi, VChar yi) -> VBool $ xi == yi
+    -- should only ever happen during quotation
+    (_, _)               -> VBool   False
  ))
 
 frac arg = interpret (Letrec "f" (Lam "x" (IfThenElse (App (App (Var "==") (Var "x")) (Int 0)) (Int 1) (App (App (Var "*") (Var "x")) (App (Var "f") (App (App (Var "-") (Var "x")) (Int 1)))))) (App (Var "f") (Int arg))) []
