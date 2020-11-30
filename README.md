@@ -1,6 +1,6 @@
 # Hasus
 
-a hobbyist language intended to basically be eager haskell.
+a hobbyist language intended to be very similar to an eager haskell.
 
 
 I'm going to be reading (and most likely loosely following) the book [The implementation of functional programming languages by Simon Peyton Jones](https://www.microsoft.com/en-us/research/publication/the-implementation-of-functional-programming-languages/ )
@@ -11,7 +11,8 @@ Features/TODOs:
 - [x] letrecs/recusion
 - [x] Evaluation/Beta reduction
 - [x] Parsing
-  - [ ] math operators
+  - [x] math operators
+    - kinda? It's a hack at the moment.
   - [ ] general infix operators
 - [ ] top level binds (ability to define functions not in a let expression)
   - currently just evaluates one expression

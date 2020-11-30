@@ -5,9 +5,6 @@ module Eval where
 import Expr 
 import Type
 import Data.Maybe (fromJust)
--- import Debug.Trace
-import System.IO.Unsafe
-import GHC.Stack
 
 data Val 
   = VVar String
@@ -18,6 +15,7 @@ data Val
   | VChar Char
     
 type Env' = [(String,Val)]
+type InitEnv = [(String,Expr)]
 
 eval :: Env' -> Expr -> Val
 eval env = \case
@@ -53,31 +51,37 @@ fresh ns x   =
             else
              x
 
-quote :: [String] -> Val -> Expr
+quote :: [String] -> Val -> Either String Expr
 quote ns = \case
-  VVar x                 -> Var x
-  VApp t u               -> App (quote ns t) (quote ns u)
-  VLam (fresh ns -> x) t -> Lam x (quote (x:ns) (t (VVar x)))
-  VBool b                -> Bool b
-  VChar c                -> Char c
-  VInt i                 -> Int i
-nf' :: Env' -> Expr -> Expr
+  VVar x     -> return $ Var x
+  VApp t u   -> quote ns t >>= \l -> quote ns u >>= \r -> return $ App l r
+  VLam _ _   -> Left "cannot print Lambda" 
+  VBool b    -> return $ Bool b
+  VChar c    -> return $ Char c
+  VInt i     -> return $ Int i
+
+nf' :: Env' -> Expr -> Either String Expr
 nf' env = quote (map fst env) . eval env
 
-nf :: Expr -> Env' -> Expr
+nf :: Expr -> Env' -> Either String Expr
 nf a b = nf' b a
 
 interpret :: Expr -> Env' -> Either String Expr
 interpret expr env =
-  let !_ = unsafePerformIO currentCallStack in  env' >>= \env' -> typeInfer expr (env'<>startEnv) >> return (nf expr (env<>startEnv'))
+  env' >>= \env' -> typeInfer expr (env'<>startEnv) >> nf expr (env<>startEnv')
   where 
     env' :: Either String Env
-    env' = 
+    env' =
       -- assumption: expressions in the enviroment can only depend on things later in the list
       let (names,values) = unzip env in
         let temp = reverse $  zip (map Var names) $ map (quote names) values  in 
-            typeInferBatch temp [] >>= \e -> return e
-          
+            -- just turned a 5 line function of type [(a,Either b c)] -> Either b [(a,c)]
+            -- into "mapM sequence"
+            -- monads are cool
+            -- A lot of the time it feels like your under layers of monads that you need to dig yourself out of to get to the data
+            -- but it's worth it to be able to write highly generic and nice code, i'd say
+            mapM sequence temp >>= \temp -> typeInferBatch temp []
+
 typeInferBatch ((var,val):env') env = 
   typeInfer val env >>= \(_,ty) -> typeInferBatch env' ((var,ty):env)
 typeInferBatch [] env = return env
@@ -88,28 +92,19 @@ startEnv :: Env
 startEnv = [(Var "+",Arrow Integer (Arrow Integer Integer)),(Var "-",Arrow Integer (Arrow Integer Integer)),(Var "*",Arrow Integer (Arrow Integer Integer)),(Var "==",Arrow (Tyvar 'a') (Arrow (Tyvar 'a') Boolean))]
 
 plus :: Val
-plus = VLam "x" (\x ->
-       VLam "y" (\y ->
-         -- breaks on quotation w/o this
-         case (x,y) of 
-           (VInt xi, VInt yi) -> VInt $ xi + yi
-           (_,_)              -> VInt   42
+plus = VLam "x" (\(VInt xi) ->
+       VLam "y" (\(VInt yi) ->
+            VInt $ xi + yi
          ))
 minus :: Val
-minus = VLam "x" (\x ->
-       VLam "y" (\y ->
-         -- breaks on quotation w/o this
-         case (x,y) of 
-           (VInt xi, VInt yi) -> VInt $ xi - yi
-           (_,_)              -> VInt   43
+minus = VLam "x" (\(VInt xi) ->
+        VLam "y" (\(VInt yi) ->
+            VInt $ xi - yi
          ))
 times :: Val
-times = VLam "x" (\x ->
-       VLam "y" (\y ->
-         -- breaks on quotation w/o this
-         case (x,y) of 
-           (VInt xi, VInt yi) -> VInt $ xi * yi
-           (_,_)              -> VInt   44
+times = VLam "x" (\(VInt xi) ->
+        VLam "y" (\(VInt yi) ->
+            VInt $ xi * yi
          ))
 eq :: Val
 eq = VLam "x" (\x -> VLam "y" (\y ->  
