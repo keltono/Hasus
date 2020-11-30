@@ -81,7 +81,7 @@ parseInt = Int . read <$> many1 digit
 parseApp :: Parsec String u Expr
 parseApp = foldl1 App <$> many1 (parseAtom <* ws)
 
-parseAtom = ws *> (Var <$> parseId  <|> between (char '(') (char ')') parseExpr <|> parseChar <|> parseInt <|> parseBool) <* ws
+parseAtom = ws *> (parseBool <|> Var <$> parseId  <|> between (char '(') (char ')') parseExpr <|> parseChar <|> parseInt ) <* ws
 
 parseExpr :: Parsec String u Expr
 parseExpr = 
