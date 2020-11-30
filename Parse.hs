@@ -2,11 +2,6 @@ module Parse where
 import Expr
 import Text.Parsec
 
--- TODO it never parses applications now??!?!? 
--- it was working earlier and i didn't think anything had changed....
--- bruh
--- going to hope this is a whitespace issue
-
 ws :: Parsec String u ()
 -- TODO add comments
 -- that was giving me issues for some reason...
