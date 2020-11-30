@@ -1,14 +1,19 @@
 module Parse where 
 import Expr
 import Text.Parsec
+import Data.Functor (($>))
 
 ws :: Parsec String u ()
 -- TODO add comments
 -- that was giving me issues for some reason...
 ws = spaces
+
+-- quick hack to allow math operators to be used prefix
+-- should be removed once infix expressions are added.
 parseId :: Parsec String u String
 parseId = 
-  letter >>= \l1 -> option "" (many1 alphaNum) >>= \lr -> return (l1:lr)
+  string "+" <|> string "-" <|> string "*" <|> string "/" <|> string "==" <|> 
+    (letter >>= \l1 -> option "" (many1 alphaNum) >>= \lr -> return (l1:lr))
 
 parseLambda :: Parsec String u Expr
 parseLambda = do
@@ -63,26 +68,23 @@ parseIfThenElse = do
   IfThenElse c t <$> parseExpr
 
 parseBool :: Parsec String u Expr
-parseBool = 
-  (string "True" >> return (Bool True)) <|>
-    (string "False" >> return (Bool False))
+parseBool = (string "True" $> Bool True) <|> (string "False" $> Bool False)
 
 --TODO escape Characters
 parseChar :: Parsec String u Expr
 parseChar = char '\'' >> Char <$> (noneOf "\'" <* char '\'')
 
 parseInt :: Parsec String u Expr
-parseInt = many1 digit >>= \i -> return $ Int $ read i
+parseInt = Int . read <$> many1 digit 
 
+-- TODO add infix/math operators
 parseApp :: Parsec String u Expr
 parseApp = foldl1 App <$> many1 (parseAtom <* ws)
 
-parseAtom = Var <$> parseId  <|> between (char '(') (char ')') parseExpr <|> parseChar <|> parseInt <|> parseBool
+parseAtom = ws *> (Var <$> parseId  <|> between (char '(') (char ')') parseExpr <|> parseChar <|> parseInt <|> parseBool) <* ws
 
 parseExpr :: Parsec String u Expr
 parseExpr = 
   ws >> 
-    choice [parseApp, parseLambda, parseLet, parseLetRec, parseIfThenElse, parseAtom] --, parseAtom]
+    choice [parseApp, parseLambda, parseLet, parseLetRec, parseIfThenElse, parseAtom] 
         <* ws
-    -- <|>
-  -- (ws >> char '(' >> parseExpr >>= \e -> char ')' >> ws >> return e) 
