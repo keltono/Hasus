@@ -23,6 +23,10 @@ parseStdin = parseString =<< getContents
 main :: IO ()
 main = do 
   expr <- parseStdin 
-  print $ typeInfer expr startEnv
-  print $ interpret expr []
+  putStrLn $ case typeInfer expr startEnv of
+            Left err -> "Error in Type Inference: " ++ err
+            Right (_,ty) -> show expr ++ " : " ++ show ty
+  putStrLn $ case interpret expr [] of
+            Left err -> "Error in Interpretation: " ++ err
+            Right out -> show out
 

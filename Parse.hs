@@ -1,20 +1,24 @@
+{-# LANGUAGE BangPatterns #-}
 module Parse where 
 import Expr
 import Text.Parsec
 import Data.Functor (($>))
 import Control.Applicative (liftA2)
+-- import System.IO.Unsafe (unsafePerformIO)
 
 ws :: Parsec String u ()
 -- TODO add comments
 -- that was giving me issues for some reason...
 ws = spaces
 
+isKeyword = flip elem ["in","λ","let","letrec","if","then","else","True", "False"]
+
 -- quick hack to allow math operators to be used prefix
 -- should be removed once infix expressions are added.
 parseId :: Parsec String u String
 parseId = 
   try (string "+" <|> string "-" <|> string "*" <|> string "/" <|> string "==") <|> 
-    liftA2 (:) letter (option "" (many1 alphaNum))
+    try (liftA2 (:) letter (option "" (many1 alphaNum)) >>= \x -> if isKeyword x then fail "keyword used as id" else return x)
 
 parseLambda :: Parsec String u Expr
 parseLambda = do
@@ -80,12 +84,12 @@ parseInt = Int . read <$> many1 digit
 
 -- TODO add infix/math operators
 parseApp :: Parsec String u Expr
-parseApp = foldl1 App <$> liftA2 (:) parseAtom (many1 ((parseLit <|> parseAtom) <* ws))
+parseApp = foldl1 App <$> (parseAtom >>= \atom -> many ((parseLit <|> parseAtom) <* ws) >>= \rest-> return (atom:rest))
 
 -- the bools might get parsed as Ids without this seperate category
 parseLit = ws *> (parseBool <|> parseChar <|> parseInt) <* ws
 
-parseAtom = ws *> (Var <$> parseId <|> between (char '(') (char ')') parseExpr ) <* ws
+parseAtom = ws *> (between (char '(') (char ')') parseExpr <|> Var <$> parseId ) <* ws
 
 parseExpr :: Parsec String u Expr
 parseExpr = 
