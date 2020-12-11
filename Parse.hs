@@ -12,7 +12,7 @@ ws = spaces
 -- should be removed once infix expressions are added.
 parseId :: Parsec String u String
 parseId = 
-  string "+" <|> string "-" <|> string "*" <|> string "/" <|> string "==" <|> 
+  try (string "+" <|> string "-" <|> string "*" <|> string "/" <|> string "==") <|> 
     (letter >>= \l1 -> option "" (many1 alphaNum) >>= \lr -> return (l1:lr))
 
 parseLambda :: Parsec String u Expr
@@ -79,12 +79,15 @@ parseInt = Int . read <$> many1 digit
 
 -- TODO add infix/math operators
 parseApp :: Parsec String u Expr
-parseApp = foldl1 App <$> many1 (parseAtom <* ws)
+parseApp = fmap (foldl1 App) $ parseAtom >>= \first -> many1 ((parseLit <|> parseAtom) <* ws) >>= \rest -> return (first:rest)
 
-parseAtom = ws *> (parseBool <|> Var <$> parseId  <|> between (char '(') (char ')') parseExpr <|> parseChar <|> parseInt ) <* ws
+-- the bools might get parsed as Ids without this seperate category
+parseLit = ws *> (parseBool <|> parseChar <|> parseInt) <* ws
+
+parseAtom = ws *> (Var <$> parseId <|> between (char '(') (char ')') parseExpr ) <* ws
 
 parseExpr :: Parsec String u Expr
 parseExpr = 
   ws >> 
-    choice [parseApp, parseLambda, parseLet, parseLetRec, parseIfThenElse, parseAtom] 
+    choice [parseLet, parseLetRec, parseIfThenElse, parseLambda, parseLit, parseApp, parseAtom] 
         <* ws

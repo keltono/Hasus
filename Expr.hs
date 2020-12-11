@@ -3,7 +3,7 @@ module Expr where
 -- I don't think there's a reason for let and letrec to be seperate?
 -- Like, just make every let a letrec implicitly, as in haskell
 data Expr = 
-  Int Int
+  Int Integer
   | Bool Bool
   | Char Char
   | Lam String Expr

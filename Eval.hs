@@ -5,17 +5,17 @@ module Eval where
 import Expr 
 import Type
 import Data.Maybe (fromJust)
+import Control.Applicative (liftA2)
 
 data Val 
   = VVar String
   | VApp Val Val
   | VLam String (Val -> Val)
   | VBool Bool
-  | VInt Int
+  | VInt Integer 
   | VChar Char
     
 type Env' = [(String,Val)]
-type InitEnv = [(String,Expr)]
 
 eval :: Env' -> Expr -> Val
 eval env = \case
@@ -25,6 +25,7 @@ eval env = \case
   Lam x t          -> VLam x (\u -> eval ((x,u):env) t)
   App l r          -> eval env l `app` eval env r
   Let f x b        -> eval ((f,eval env x):env) b
+  Var x            -> fromJust $ lookup x env 
   IfThenElse c t e -> 
     case eval env c of
       VBool True  -> eval env t
@@ -34,9 +35,6 @@ eval env = \case
     -- (well, mostly. This is obviously not that difficult to simulate in ocaml)
     let env'  = (f, eval env' x):env in
         eval env' b
-
-
-  Var x    -> fromJust $ lookup x env 
   
 app :: Val -> Val -> Val
 app (VLam _ t) x = t x
@@ -54,7 +52,7 @@ fresh ns x   =
 quote :: [String] -> Val -> Either String Expr
 quote ns = \case
   VVar x     -> return $ Var x
-  VApp t u   -> quote ns t >>= \l -> quote ns u >>= \r -> return $ App l r
+  VApp t u   -> liftA2 App (quote ns t)  (quote ns u)
   VLam _ _   -> Left "cannot print Lambda" 
   VBool b    -> return $ Bool b
   VChar c    -> return $ Char c
@@ -68,6 +66,7 @@ nf a b = nf' b a
 
 interpret :: Expr -> Env' -> Either String Expr
 interpret expr env =
+  -- TODO maybe make it so it doesn't try to eval if typeInfer fails?
   env' >>= \env' -> typeInfer expr (env'<>startEnv) >> nf expr (env<>startEnv')
   where 
     env' :: Either String Env
@@ -112,8 +111,7 @@ eq = VLam "x" (\x -> VLam "y" (\y ->
     (VInt xi, VInt yi)   -> VBool $ xi == yi
     (VBool xi, VBool yi) -> VBool $ xi == yi
     (VChar xi, VChar yi) -> VBool $ xi == yi
-    -- should only ever happen during quotation
-    (_, _)               -> VBool   False
+    -- feeding a lambda will raise an error
  ))
 
 frac arg = interpret (Letrec "f" (Lam "x" (IfThenElse (App (App (Var "==") (Var "x")) (Int 0)) (Int 1) (App (App (Var "*") (Var "x")) (App (Var "f") (App (App (Var "-") (Var "x")) (Int 1)))))) (App (Var "f") (Int arg))) []
