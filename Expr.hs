@@ -1,7 +1,5 @@
 module Expr where
 
--- I don't think there's a reason for let and letrec to be seperate?
--- Like, just make every let a letrec implicitly, as in haskell
 data Expr = 
   Int Integer
   | Bool Bool
@@ -9,7 +7,6 @@ data Expr =
   | Lam String Expr
   | App Expr Expr
   | Let String Expr Expr 
-  | Letrec String Expr Expr
   | IfThenElse Expr Expr Expr
   | Var String
   deriving Eq
@@ -37,5 +34,4 @@ instance Show Expr where
   show (App e e')     = "(" ++  show e ++ " " ++ show e' ++ ")"
   show (Let f e b)    = "let " ++ f ++ " = " ++ show e ++ " in " ++ show b
   show (Var string)   = string
-  show (Letrec f e b) = "let rec " ++ f ++ " = " ++ show e ++ " in " ++ show b
   show (IfThenElse c t e) = "if " ++ show c ++ " then " ++ show t ++ " else " ++ show e

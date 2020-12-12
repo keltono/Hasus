@@ -37,3 +37,5 @@ Nothing really bugs me about the language.
 Interested other people's issues with the language that still involve remaining purely functional, and keeping HM types.
 
 Shout out to [plzoo]( https://github.com/andrejbauer/plzoo ) and [elaborationzoo]( https://github.com/AndrasKovacs/elaboration-zoo ), both of which were used as references for various parts of implementation.
+
+

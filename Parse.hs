@@ -1,9 +1,13 @@
+{-# LANGUAGE BangPatterns #-}
 module Parse where 
 import Expr
 import Text.Parsec
+import Text.Parsec.Expr
+-- import Text.Parsec.Token (reservedOp)
 import Data.Functor (($>))
 import Control.Applicative (liftA2)
--- import System.IO.Unsafe (unsafePerformIO)
+import System.IO.Unsafe (unsafePerformIO)
+import Control.Monad.Identity
 
 ws :: Parsec String u ()
 -- TODO add comments
@@ -11,12 +15,16 @@ ws :: Parsec String u ()
 ws = spaces
 
 isKeyword = flip elem ["in","λ","let","letrec","if","then","else","True", "False"]
+-- might eventually add user-defined infix exprs?
+-- changing the parser at run/compile time 
+parseInfixOp = 
+  Var <$> choice (map string ["*","/","+","-","=="])
 
 -- quick hack to allow math operators to be used prefix
 -- should be removed once infix expressions are added.
 parseId :: Parsec String u String
 parseId = 
-  try (string "+" <|> string "-" <|> string "*" <|> string "/" <|> string "==") <|> 
+  -- try (string "+" <|> string "-" <|> string "*" <|> string "/" <|> string "==") <|> 
     try (liftA2 (:) letter (option "" (many1 alphaNum)) >>= \x -> if isKeyword x then fail "ERROR: keyword used as id" else return x)
 
 parseLambda :: Parsec String u Expr
@@ -34,6 +42,7 @@ parseLet = do
   string "let"
   ws 
   name <- parseId
+  let !_ = unsafePerformIO $ putStrLn $ "Let: " ++ show name
   ws
   char '='
   ws
@@ -41,21 +50,7 @@ parseLet = do
   ws
   string "in"
   ws
-  Let name x <$> parseExpr 
-
-parseLetRec :: Parsec String u Expr
-parseLetRec = do
-  string "letrec"
-  ws 
-  name <- parseId
-  ws
-  char '='
-  ws
-  x <- parseExpr
-  ws
-  string "in"
-  ws
-  Letrec name x <$> parseExpr 
+  Let name x <$> parseExpr
 
 parseIfThenElse :: Parsec String u Expr
 parseIfThenElse = do
@@ -87,10 +82,42 @@ parseApp = foldl1 App <$> (parseAtom >>= \atom -> many ((parseLit <|> parseAtom)
 -- the bools might get parsed as Ids without this seperate category
 parseLit = ws *> (parseBool <|> parseChar <|> parseInt) <* ws
 
+parseInfix :: Parsec String u Expr
+parseInfix = do
+  ws
+  le <- try (parseLit <|> parseAtom)
+  ws
+  op <- parseInfixOp  
+  ws
+  re <- try (parseLit <|> parseAtom)
+  ws
+  return $ App (App op le) re
+
+
 parseAtom = ws *> (between (char '(') (char ')') parseExpr <|> Var <$> parseId ) <* ws
 
-parseExpr :: Parsec String u Expr
-parseExpr = 
+parseExpr' :: Parsec String u Expr
+parseExpr' = 
   ws *> 
-    choice [parseLet, parseLetRec, parseIfThenElse, parseLambda, parseLit, parseApp, parseAtom] 
+    choice [parseLet, parseIfThenElse, parseLambda, parseLit, parseApp, parseAtom] 
         <* ws
+
+parseExpr = buildExpressionParser table parseExpr'
+
+table = [ [prefix "-" (App (Var "-"))]
+         -- , [postfix "++" (+1)]
+         , [binary "*" (binApp "*") AssocLeft, binary "/" (binApp "/") AssocLeft ]
+         , [binary "+" (binApp "+") AssocLeft, binary "-" (binApp "-") AssocLeft ]
+         , [binary "==" (binApp "==") AssocNone]
+         ]
+
+binary  :: String -> (a->a->a) -> Assoc -> Operator String u Identity a
+binary   name fun = Infix  $ try (string name) >> pure fun
+
+prefix  :: String -> (a->a) -> Operator String u Identity a 
+prefix   name fun = Prefix $ try (string name) >> pure fun
+
+postfix :: String -> (a->a) -> Operator String u Identity a
+postfix  name fun = Prefix $ try (string name) >> pure fun
+
+binApp n x = App (App (Var n) x)

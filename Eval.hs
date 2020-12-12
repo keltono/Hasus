@@ -24,21 +24,18 @@ eval env = \case
   Char c           -> VChar c
   Lam x t          -> VLam x (\u -> eval ((x,u):env) t)
   App l r          -> eval env l `app` eval env r
-  Let f x b        -> eval ((f,eval env x):env) b
   Var x            -> fromJust $ lookup x env 
   IfThenElse c t e -> 
     case eval env c of
       VBool True  -> eval env t
       VBool False -> eval env e
-  Letrec f !x b     -> 
+  Let f !x b     -> 
     -- laziness saves the day!
-    -- (well, mostly. This is obviously not that difficult to simulate in ocaml)
     let env'  = (f, eval env' x):env in
         eval env' b
   
 app :: Val -> Val -> Val
 app (VLam _ t) x = t x
--- not sure why/if this is necessary...
 app l r        = VApp l r
 
 fresh :: [String] -> String -> String
@@ -58,16 +55,13 @@ quote ns = \case
   VChar c    -> return $ Char c
   VInt i     -> return $ Int i
 
-nf' :: Env' -> Expr -> Either String Expr
-nf' env = quote (map fst env) . eval env
-
-nf :: Expr -> Env' -> Either String Expr
-nf a b = nf' b a
+nf :: Env' -> Expr -> Either String Expr
+nf env = quote (map fst env) . eval env
 
 interpret :: Expr -> Env' -> Either String Expr
 interpret expr env =
   -- TODO maybe make it so it doesn't try to eval if typeInfer fails?
-  env' >>= \env' -> typeInfer expr (env'<>startEnv) >> nf expr (env<>startEnv')
+  env' >>= \env' -> typeInfer expr (env'<>startEnv) >> nf (env<>startEnv') expr 
   where 
     env' :: Either String Env
     env' =
@@ -111,7 +105,6 @@ eq = VLam "x" (\x -> VLam "y" (\y ->
     (VInt xi, VInt yi)   -> VBool $ xi == yi
     (VBool xi, VBool yi) -> VBool $ xi == yi
     (VChar xi, VChar yi) -> VBool $ xi == yi
-    -- feeding a lambda will raise an error
  ))
 
-frac arg = interpret (Letrec "f" (Lam "x" (IfThenElse (App (App (Var "==") (Var "x")) (Int 0)) (Int 1) (App (App (Var "*") (Var "x")) (App (Var "f") (App (App (Var "-") (Var "x")) (Int 1)))))) (App (Var "f") (Int arg))) []
+frac arg = interpret (Let "f" (Lam "x" (IfThenElse (App (App (Var "==") (Var "x")) (Int 0)) (Int 1) (App (App (Var "*") (Var "x")) (App (Var "f") (App (App (Var "-") (Var "x")) (Int 1)))))) (App (Var "f") (Int arg))) []

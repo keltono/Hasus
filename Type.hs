@@ -6,16 +6,16 @@ import Expr
 
 headSafe (x:_) = Just x
 headSafe []    = Nothing
+-- BUG:
+-- let x = (\x -> if x == 0 then 1 else 2) in 1
+-- type infers x : 'a -> Integer
+-- instead of Integer -> Integer
 
 -- basic Hindley-Milner style type inference
 -- Implemented off of memory -- I wanted to see how far I could get without looking up how its done properly
 -- As such it ended being pretty hacky/bodgey/kludgey etc
 -- Might have some bugs for cases I haven't tested, but it works for all that i have tested.
 -- As it stands I think it *is* Hindley Milner 
--- no recursion though...
--- Honestly, with a seperate definition operator, I think i could just implement recursion directly?
--- Will probably just implement recursive typechecking using letrecs directly, then compile to the untyped λ calculus
--- Or skip the last step and interpret the enriched lambda calculus directly
 type Env = [(Expr,Type)]
 
 typeInfer :: Expr -> Env -> Either String (Env,Type) 
@@ -28,9 +28,6 @@ typeInfer (App e1 e2) env = do
   (env', ty1) <- typeInfer e1 env
   (env'', ty2) <- typeInfer e2 env'
   case ty1 of
-    -- makes sense in theory, but haskell doesn't stop this so it probably has a purpose
-    -- Arrow (Tyvar a) (Tyvar b) -> if a == b then return (env'', ty2) else Left "HUH?"
-
     Arrow (Tyvar a) ft2       -> return (env'', typeSub (Tyvar a) ty2 ft2)
      
     Arrow (Arrow l r) ft2     ->
@@ -90,7 +87,12 @@ typeInfer (App e1 e2) env = do
        _       -> if ft1 == ty2 then
                                  return (env'', ft2)
                                  else
-                                 Left "incorrect type in application"
+                                 Left $ "Incorrect type in application " ++
+                                   show e1 ++ " : " ++ show (Arrow ft1 ft2) ++ 
+                                     " Applied to " ++
+                                       show e2 ++ " : " ++ show ty2
+
+
 
     Tyvar a  -> 
       case e1 of 
@@ -113,18 +115,11 @@ typeInfer (Var x) env =
 -- I think a clause in add arg should be able to fix this?
 -- well, and changing the type of add arg to a just/either
 typeInfer (Let f x b) env = do
-  (_,ty) <- typeInfer x env
-  typeInfer b $ (Var f,ty):env
---TODO test?
-typeInfer (Letrec f x b) env = do
   (_,ty) <- typeInfer x ((Var f,getFreshTyVar env):env)
   typeInfer b ((Var f, ty):env)
 
--- TODO ite contrains tyvars to bools/the same type as the other branch
-typeInfer (IfThenElse c t e) env = -- do 
-  -- (_,cty) <- typeInfer c env
-  -- (_,ty) <- typeInfer t env
-  -- (_,ty') <- typeInfer e env
+-- We have this nice function type inference, why not use it?
+typeInfer (IfThenElse c t e) env = 
   typeInfer iteAppArgs iteAppEnv
     where
       iteAppArgs :: Expr 
@@ -236,4 +231,4 @@ wrong = App (Lam "x" (App (App (Var "x") (Int 1)) (Int 2))) (Var "+")
 wrong' = Lam "x" (App (App (Var "x") (Int 1)) (Int 2))
 
 letrecTest :: Expr
-letrecTest = Letrec "f" (Lam "x" (App (Var "f") (Var "x"))) (App (Var "f") (Int 2))
+letrecTest = Let "f" (Lam "x" (App (Var "f") (Var "x"))) (App (Var "f") (Int 2))

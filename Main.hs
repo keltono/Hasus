@@ -27,8 +27,10 @@ parseFile x = parseString x =<< readFile x
 main :: IO ()
 main = do 
   args <- getArgs
+  -- if no arguments, read from stdin. Otherwise, read from the given file.
+  -- this obviously doesn't work with command line options, 
+  -- but it also will not be hard to rewrite if/when those are added
   expr <- if null args then parseStdin else parseFile $ head args
-  -- expr <- parseStdin 
   case typeInfer expr startEnv of
     Left  err    -> 
       putStrLn $ "Error in Type Inference: " ++ err
