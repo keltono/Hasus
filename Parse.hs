@@ -5,7 +5,7 @@ import Text.Parsec
 import Text.Parsec.Expr
 import Data.Functor (($>))
 import Control.Applicative (liftA2)
-import System.IO.Unsafe (unsafePerformIO)
+-- import System.IO.Unsafe (unsafePerformIO)
 import Control.Monad.Identity
 
 ws :: Parsec String u ()
@@ -33,7 +33,6 @@ parseLet = do
   string "let"
   ws 
   name <- parseId
-  let !_ = unsafePerformIO $ putStrLn $ "Let: " ++ show name
   ws
   char '='
   ws

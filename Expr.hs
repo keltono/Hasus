@@ -30,7 +30,7 @@ instance Show Expr where
   show (Int i)        = show i
   show (Char c)       = show c
   show (Bool b)       = show b
-  show (Lam x b)      = "(\\"++ x ++ " -> " ++ show b ++ ")"
+  show (Lam x b)      = "(λ"++ x ++ " -> " ++ show b ++ ")"
   show (App e e')     = "(" ++  show e ++ " " ++ show e' ++ ")"
   show (Let f e b)    = "let " ++ f ++ " = " ++ show e ++ " in " ++ show b
   show (Var string)   = string
