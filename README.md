@@ -2,6 +2,15 @@
 
 a hobbyist language intended to be very similar to an eager haskell.
 
+## Syntax
+At the moment, syntax is more or less a strict subset of haskell.
+The [examples folder](examples/) is the closest thing there is to a spec.
+## Semantics
+As said above, it is itended to very similar to haskell,
+except eager instead of lazy, and with various minor tweaks.
+Currently, the language is more or less (HM)[ https://en.wikipedia.org/wiki/Hindley–Milner_type_system ] without type constuctors. 
+There are three built in sorts (Integers, Chars, Bools), the function type, and polymorphic types as described in (Hindley-Milner)[ https://en.wikipedia.org/wiki/Hindley–Milner_type_system ]. 
+The semantics of the language will be extended (roughly) according to the todo-list below.
 
 I'm going to be reading (and most likely loosely following) the book [The implementation of functional programming languages by Simon Peyton Jones](https://www.microsoft.com/en-us/research/publication/the-implementation-of-functional-programming-languages/ )
 as I go along.

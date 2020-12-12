@@ -29,6 +29,7 @@ eval env = \case
     case eval env c of
       VBool True  -> eval env t
       VBool False -> eval env e
+      _           -> error "non-bool in if-then-else condition"
   Let f !x b     -> 
     -- laziness saves the day!
     let env'  = (f, eval env' x):env in
@@ -61,7 +62,7 @@ nf env = quote (map fst env) . eval env
 interpret :: Expr -> Env' -> Either String Expr
 interpret expr env =
   -- TODO maybe make it so it doesn't try to eval if typeInfer fails?
-  env' >>= \env' -> typeInfer expr (env'<>startEnv) >> nf (env<>startEnv') expr 
+  env' >>= \env'' -> typeInfer expr (env''<>startEnv) >> nf (env<>startEnv') expr 
   where 
     env' :: Either String Env
     env' =
@@ -73,8 +74,9 @@ interpret expr env =
             -- monads are cool
             -- A lot of the time it feels like your under layers of monads that you need to dig yourself out of to get to the data
             -- but it's worth it to be able to write highly generic and nice code, i'd say
-            mapM sequence temp >>= \temp -> typeInferBatch temp []
+            mapM sequence temp >>= \temp' -> typeInferBatch temp' []
 
+typeInferBatch :: [(Expr,Expr)] -> [(Expr,Type)] -> Either String Env
 typeInferBatch ((var,val):env') env = 
   typeInfer val env >>= \(_,ty) -> typeInferBatch env' ((var,ty):env)
 typeInferBatch [] env = return env
@@ -110,6 +112,8 @@ eq = VLam "x" (\x -> VLam "y" (\y ->
     (VInt xi, VInt yi)   -> VBool $ xi == yi
     (VBool xi, VBool yi) -> VBool $ xi == yi
     (VChar xi, VChar yi) -> VBool $ xi == yi
+    _ -> error "invalid eq"
  ))
 
+frac :: Integer -> Either String Expr
 frac arg = interpret (Let "f" (Lam "x" (IfThenElse (App (App (Var "==") (Var "x")) (Int 0)) (Int 1) (App (App (Var "*") (Var "x")) (App (Var "f") (App (App (Var "-") (Var "x")) (Int 1)))))) (App (Var "f") (Int arg))) []
