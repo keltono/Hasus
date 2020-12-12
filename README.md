@@ -12,8 +12,7 @@ Features/TODOs:
 - [x] Evaluation/Beta reduction
 - [x] Parsing
   - [x] math operators
-    - kinda? It's a hack at the moment.
-  - [ ] general infix operators
+  - [x] general infix operators
 - [ ] top level binds (ability to define functions not in a let expression)
   - currently just evaluates one expression
 - [ ] Lists
@@ -21,7 +20,7 @@ Features/TODOs:
 - [ ] Algebriac data types
 - [ ] Pattern Matching
 - [ ] Haskell-style module system
-- [ ] tail call optimization 
+- [ ] user-defined infix operators
 - [ ] [...]
 - [ ] Typeclasses 
 - [ ] Monadic IO

@@ -1,0 +1,1 @@
+let square = \x -> * x x in square 32131243279843984327498327

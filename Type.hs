@@ -6,10 +6,6 @@ import Expr
 
 headSafe (x:_) = Just x
 headSafe []    = Nothing
--- BUG:
--- let x = (\x -> if x == 0 then 1 else 2) in 1
--- type infers x : 'a -> Integer
--- instead of Integer -> Integer
 
 -- basic Hindley-Milner style type inference
 -- Implemented off of memory -- I wanted to see how far I could get without looking up how its done properly
