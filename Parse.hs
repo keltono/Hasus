@@ -1,4 +1,3 @@
-{-# LANGUAGE BangPatterns #-}
 module Parse where 
 import Expr
 import Text.Parsec
@@ -18,7 +17,7 @@ isKeyword = flip elem ["in","λ","let","letrec","if","then","else","True", "Fals
 parseId :: Parsec String u String
 parseId = 
   try (string "+" <|> string "-" <|> string "*" <|> string "/" <|> string "==") <|> 
-    try (liftA2 (:) letter (option "" (many1 alphaNum)) >>= \x -> if isKeyword x then fail "keyword used as id" else return x)
+    try (liftA2 (:) letter (option "" (many1 alphaNum)) >>= \x -> if isKeyword x then fail "ERROR: keyword used as id" else return x)
 
 parseLambda :: Parsec String u Expr
 parseLambda = do
@@ -85,7 +84,6 @@ parseInt = Int . read <$> many1 digit
 -- TODO add infix/math operators
 parseApp :: Parsec String u Expr
 parseApp = foldl1 App <$> (parseAtom >>= \atom -> many ((parseLit <|> parseAtom) <* ws) >>= \rest-> return (atom:rest))
-
 -- the bools might get parsed as Ids without this seperate category
 parseLit = ws *> (parseBool <|> parseChar <|> parseInt) <* ws
 
