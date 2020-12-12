@@ -85,21 +85,21 @@ parseExpr = buildExpressionParser table parseExpr'
 -- might eventually add user-defined infix exprs?
 -- would be a bit of a pain...
 -- TODO impl unary negation
-table = [ [prefix "-" (App (Var "-"))]
+table = [ [prefix "-" (App (Var "~"))]
          -- , [postfix "++" (+1)]
-         , [binary "*" (binApp "*") AssocLeft, binary "/" (binApp "/") AssocLeft ]
-         , [binary "+" (binApp "+") AssocLeft, binary "-" (binApp "-") AssocLeft ]
-         , [binary "==" (binApp "==") AssocNone]
+         , [binary "*"  AssocLeft, binary "/" AssocLeft ]
+         , [binary "+"  AssocLeft, binary "-" AssocLeft ]
+         , [binary "==" AssocNone]
          ]
 
-binApp n x = App (App (Var n) x)
 
-binary  :: String -> (a->a->a) -> Assoc -> Operator String u Identity a
-binary   name fun = Infix  $ try (string name) >> pure fun
+binary  :: String -> Assoc -> Operator String u Identity Expr
+binary  name = Infix  $ try (string name) $> binApp name
+  where binApp n x = App (App (Var n) x)
 
 prefix  :: String -> (a->a) -> Operator String u Identity a 
-prefix   name fun = Prefix $ try (string name) >> pure fun
+prefix  name fun = Prefix $ try (string name) $> fun
 
 postfix :: String -> (a->a) -> Operator String u Identity a
-postfix  name fun = Prefix $ try (string name) >> pure fun
+postfix name fun = Prefix $ try (string name) $> fun
 

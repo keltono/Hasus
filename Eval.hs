@@ -80,9 +80,14 @@ typeInferBatch ((var,val):env') env =
 typeInferBatch [] env = return env
 
 startEnv' :: Env' 
-startEnv' = [("+",plus),("-",minus),("*",times),("==",eq)]
+startEnv' = [("+",plus),("-",minus),("*",times),("==",eq),("~",neg)]
 startEnv :: Env
-startEnv = [(Var "+",Arrow Integer (Arrow Integer Integer)),(Var "-",Arrow Integer (Arrow Integer Integer)),(Var "*",Arrow Integer (Arrow Integer Integer)),(Var "==",Arrow (Tyvar 'a') (Arrow (Tyvar 'a') Boolean))]
+startEnv = [(Var "~", Arrow Integer Integer),(Var "+",Arrow Integer (Arrow Integer Integer)),(Var "-",Arrow Integer (Arrow Integer Integer)),(Var "*",Arrow Integer (Arrow Integer Integer)),(Var "==",Arrow (Tyvar 'a') (Arrow (Tyvar 'a') Boolean))]
+
+-- built in functions
+-- the symbol for negation after parsing is '~'
+neg :: Val
+neg = VLam "x" (\(VInt xi) -> VInt (-xi))
 
 plus :: Val
 plus = VLam "x" (\(VInt xi) ->

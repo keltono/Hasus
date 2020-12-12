@@ -12,6 +12,7 @@ headSafe []    = Nothing
 -- As such it ended being pretty hacky/bodgey/kludgey etc
 -- Might have some bugs for cases I haven't tested, but it works for all that i have tested.
 -- As it stands I think it *is* Hindley Milner 
+-- Well, without type constuctors
 type Env = [(Expr,Type)]
 
 typeInfer :: Expr -> Env -> Either String (Env,Type) 
