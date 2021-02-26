@@ -4,6 +4,7 @@ import Data.Maybe (mapMaybe)
 import Data.Tuple (swap)
 import Expr
 
+headSafe :: [a] -> Maybe a
 headSafe (x:_) = Just x
 headSafe []    = Nothing
 
@@ -16,8 +17,8 @@ headSafe []    = Nothing
 type Env = [(Expr,Type)]
 
 typeInfer :: Expr -> Env -> Either String (Env,Type) 
-typeInfer (Lam x exp) env = 
-  typeInfer exp ((Var x,getFreshTyVar env):env) >>= \(env',ty) ->
+typeInfer (Lam x expr) env = 
+  typeInfer expr ((Var x,getFreshTyVar env):env) >>= \(env',ty) ->
   return (env,Arrow (getType env' (Var x)) ty) 
 
 --TODO: add ability to deal with type spesifiers?
@@ -40,17 +41,6 @@ typeInfer (App e1 e2) env = do
                                $ map swap bindings in
               let (_,bindings') = arrowEquiv (Arrow l r) newTy [] in
                 if eq
-                  -- issue with this is that if the left type is more spesific then the right type, it won't get updated. 
-                  -- e.g, x:(Int->a)->a `App` id:a->a will map Int,a for the equiv. check, but not for the replacement. 
-                  -- It's a 2 step deal. first you determine that (Int,a) is the correct map, but then you need to instantiate id
-                  -- with the most spesific type. If you have (Int,a) and (b,Int) for (a->b->a), you should end up with (Int->Int->Int)
-
-                  -- Solution: in list of bindings, if it is valid, there will be 1 or 0 bindings from a concrete type to a given
-                  -- tyvar in the right type. Place that binding backwards on the right type, then run the algorithim again.
-                  -- Then, the tyvar bindings from arrowEquiv should be correct.
-                  -- If there are no concrete types, but multiple tyvars in the left being bound to the right,
-                  -- do the same thing, choosing one from the left in any order.
-                  -- ... I think. That might not have made any sense.
                   then return (env'', foldl' (\ft2 (org,repl) -> typeSub org repl ft2 ) ft2 bindings' ) 
                   else Left $  "incompatable function types between argument type'" ++ show (Arrow l r) 
                                ++ "' and input type '" ++ show (Arrow l' r') ++ "' in  function application \n" ++ show ty1
@@ -77,6 +67,7 @@ typeInfer (App e1 e2) env = do
                 [(lt,_)] -> (lt == x,bindings)
                 []       -> (True, (x, Tyvar a):bindings)
             arrowEquiv x y bindings = (x == y, bindings)
+        _ -> error "unreachable case in typechecking"
 
     Arrow ft1 ft2             ->
       case ty2 of 
@@ -116,17 +107,17 @@ typeInfer (Let f x b) env = do
   typeInfer b ((Var f, ty):env)
 
 -- We have this nice function type inference, why not use it?
-typeInfer (IfThenElse c t e) env = 
-  typeInfer iteAppArgs iteAppEnv
-    where
-      iteAppArgs :: Expr 
-      iteAppArgs =
-        App (App (App itename c) t) e
-      iteAppEnv :: Env
-      iteAppEnv = 
-        let newTyvar = getFreshTyVar env in
-            ((itename,Arrow Boolean (Arrow newTyvar (Arrow newTyvar newTyvar))):env)
-      itename = getFreshVar env
+-- typeInfer (IfThenElse c t e) env = 
+--   typeInfer iteAppArgs iteAppEnv
+--     where
+--       iteAppArgs :: Expr 
+--       iteAppArgs =
+--         App (App (App itename c) t) e
+--       iteAppEnv :: Env
+--       iteAppEnv = 
+--         let newTyvar = getFreshTyVar env in
+--             ((itename,Arrow Boolean (Arrow newTyvar (Arrow newTyvar newTyvar))):env)
+--       itename = getFreshVar env
   
 
 typeInfer (Char _) env = return (env, Character)
@@ -152,20 +143,21 @@ addArg (Var x ) t env =
           update :: Type -> Type -> Type
           update (Arrow x y) t = Arrow x (update y t)
           update x           t = Arrow t x
+addArg _ _ _ = error "misapplication of addArg"
 
 isTyvar :: Type -> Bool
 isTyvar (Tyvar _) = True
 isTyvar _         = False
 
 isInEnv :: Env -> Expr -> Bool
-isInEnv env exp = 
-  case filter (\(x,_) -> x == exp) env of
+isInEnv env expr = 
+  case filter (\(x,_) -> x == expr) env of
     [] -> False
     _  -> True
 
 getType :: Env -> Expr -> Type 
-getType env exp = 
-  snd $ head $ filter (\(x,_) -> x == exp) env
+getType env expr = 
+  snd $ head $ filter (\(x,_) -> x == expr) env
 
 --substitute $1 with $2 in $3
 typeSub :: Type -> Type -> Type -> Type
@@ -173,6 +165,7 @@ typeSub t t' (Arrow x y) =
   Arrow (typeSub t t' x) (typeSub t t' y)
 typeSub t t' t'' = if t == t'' then t' else t''
 
+getTyvarString :: Type  -> Maybe Char
 getTyvarString (Tyvar x) = Just x
 getTyvarString _         = Nothing
 
@@ -200,8 +193,8 @@ replaceType env expr t =
   map (\(ex,ty) -> if ex==expr then (ex,t) else (ex,ty)) env
 
 ti :: Expr -> Env -> Maybe Type
-ti exp env  = 
-  case typeInfer exp env of 
+ti expr env  = 
+  case typeInfer expr env of 
     Left   _     -> Nothing
     Right (_,ty) -> Just ty
 
@@ -220,11 +213,10 @@ letEnv = [(Var "ici", Arrow Integer (Arrow Character Integer)), (Var "y", Intege
 testLetExpr2 :: Expr
 testLetExpr2 = Let "f" (Lam "x" (Var "x")) (App (App (Var "ici") (App (Var "f") (Int 2))) (App (Var "f") (Char 'l')))
 
-eId = Lam "x" (Var "x")
-
 -- no longer wrong! :), used to infer to 'a, now infers to Integer
 wrong :: Expr
 wrong = App (Lam "x" (App (App (Var "x") (Int 1)) (Int 2))) (Var "+")
+wrong' :: Expr
 wrong' = Lam "x" (App (App (Var "x") (Int 1)) (Int 2))
 
 letrecTest :: Expr

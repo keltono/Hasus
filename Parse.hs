@@ -13,6 +13,20 @@ ws :: Parsec String u ()
 -- that was giving me issues for some reason...
 ws = spaces
 
+parseProgram :: Parsec String u [(String,Expr)]
+parseProgram = many parseFuncDef
+
+parseFuncDef :: Parsec String u (String,Expr)
+parseFuncDef = do
+  _ <- string "def" 
+  ws
+  name <- parseId
+  _ <- char '='
+  ws
+  body <- parseExpr
+  return (name,body)
+
+isKeyword :: String -> Bool
 isKeyword = flip elem ["in","λ","let","letrec","if","then","else","True", "False"]
 parseId :: Parsec String u String
 parseId = 
@@ -20,41 +34,41 @@ parseId =
 
 parseLambda :: Parsec String u Expr
 parseLambda = do
-  char 'λ' <|> char '\\'
+  _ <- char 'λ' <|> char '\\'
   ws
   name <- parseId
   ws
-  string "->"
+  _ <- string "->"
   ws
   Lam name <$> parseExpr
 
 parseLet :: Parsec String u Expr
 parseLet = do
-  string "let"
+  _ <- string "let"
   ws 
   name <- parseId
   ws
-  char '='
+  _ <- char '='
   ws
   x <- parseExpr
   ws
-  string "in"
+  _ <- string "in"
   ws
   Let name x <$> parseExpr
 
-parseIfThenElse :: Parsec String u Expr
-parseIfThenElse = do
-  string "if"
-  ws
-  c <- parseExpr
-  ws
-  string "then"
-  ws
-  t <- parseExpr
-  ws
-  string "else"
-  ws
-  IfThenElse c t <$> parseExpr
+-- parseIfThenElse :: Parsec String u Expr
+-- parseIfThenElse = do
+--   _ <- string "if"
+--   ws
+--   c <- parseExpr
+--   ws
+--   _ <- string "then"
+--   ws
+--   t <- parseExpr
+--   ws
+--   _ <- string "else"
+--   ws
+--   IfThenElse c t <$> parseExpr
 
 parseBool :: Parsec String u Expr
 parseBool = (string "True" $> Bool True) <|> (string "False" $> Bool False)
@@ -70,23 +84,27 @@ parseApp :: Parsec String u Expr
 parseApp = foldl1 App <$> (parseAtom >>= \atom -> many ((parseLit <|> parseAtom) <* ws) >>= \rest-> return (atom:rest))
 
 -- bools might get parsed as Ids without this seperate category
+parseLit :: Parsec String u Expr
 parseLit = ws *> (parseBool <|> parseChar <|> parseInt) <* ws
 
+
+parseAtom :: Parsec String u Expr
 parseAtom = ws *> (between (char '(') (char ')') parseExpr <|> Var <$> parseId ) <* ws
 
 parseExpr' :: Parsec String u Expr
 parseExpr' = 
   ws *> 
-    choice [parseLet, parseIfThenElse, parseLambda, parseLit, parseApp, parseAtom] 
+    choice [parseLet, parseLambda, parseLit, parseApp, parseAtom] -- parseIfThenElse
         <* ws
 
+
+parseExpr :: Parsec String u Expr
 parseExpr = buildExpressionParser table parseExpr'
 
 -- might eventually add user-defined infix exprs?
 -- would be a bit of a pain...
--- TODO impl unary negation
+table :: [[Operator String  u Identity Expr ]]
 table = [ [prefix "-" (App (Var "~"))]
-         -- , [postfix "++" (+1)]
          , [binary "*"  AssocLeft, binary "/" AssocLeft ]
          , [binary "+"  AssocLeft, binary "-" AssocLeft ]
          , [binary "==" AssocNone]

@@ -17,6 +17,17 @@ data Val
     
 type Env' = [(String,Val)]
 
+expToVal :: Expr -> Val
+expToVal (Int i) = VInt i
+expToVal (Var s) = VVar s
+expToVal (Bool b) = VBool b
+expToVal (Char c) = VChar c
+expToVal (Lam s e) = VLam s (\u -> expToVal e)
+expToVal (App e1 e2) = VApp (expToVal e1) (expToVal e2)
+expToVal (Let s !e1 e2) = VApp (VLam s (\u -> expToVal e2)) (expToVal e1)
+
+
+
 eval :: Env' -> Expr -> Val
 eval env = \case
   Int i            -> VInt i
@@ -25,11 +36,6 @@ eval env = \case
   Lam x t          -> VLam x (\u -> eval ((x,u):env) t)
   App l r          -> eval env l `app` eval env r
   Var x            -> fromJust $ lookup x env 
-  IfThenElse c t e -> 
-    case eval env c of
-      VBool True  -> eval env t
-      VBool False -> eval env e
-      _           -> error "non-bool in if-then-else condition"
   Let f !x b     -> 
     -- laziness saves the day!
     let env'  = (f, eval env' x):env in
@@ -115,5 +121,5 @@ eq = VLam "x" (\x -> VLam "y" (\y ->
     _ -> error "invalid eq"
  ))
 
-frac :: Integer -> Either String Expr
-frac arg = interpret (Let "f" (Lam "x" (IfThenElse (App (App (Var "==") (Var "x")) (Int 0)) (Int 1) (App (App (Var "*") (Var "x")) (App (Var "f") (App (App (Var "-") (Var "x")) (Int 1)))))) (App (Var "f") (Int arg))) []
+-- frac :: Integer -> Either String Expr
+-- frac arg = interpret (Let "f" (Lam "x" (IfThenElse (App (App (Var "==") (Var "x")) (Int 0)) (Int 1) (App (App (Var "*") (Var "x")) (App (Var "f") (App (App (Var "-") (Var "x")) (Int 1)))))) (App (Var "f") (Int arg))) []

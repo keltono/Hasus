@@ -1,0 +1,6 @@
+- General renaming/refactor
+  - What env is what?
+- If something is not defined in a function, check and see if it defined later in the same file
+  - error if something is defined twice at the top level?
+- Type annotations
+- Redo type inference in perperation for ADTs and typclasses

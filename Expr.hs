@@ -7,7 +7,6 @@ data Expr =
   | Lam String Expr
   | App Expr Expr
   | Let String Expr Expr 
-  | IfThenElse Expr Expr Expr
   | Var String
   deriving Eq
 
@@ -34,4 +33,3 @@ instance Show Expr where
   show (App e e')     = "(" ++  show e ++ " " ++ show e' ++ ")"
   show (Let f e b)    = "let " ++ f ++ " = " ++ show e ++ " in " ++ show b
   show (Var string)   = string
-  show (IfThenElse c t e) = "if " ++ show c ++ " then " ++ show t ++ " else " ++ show e

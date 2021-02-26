@@ -15,6 +15,9 @@ The semantics of the language will be extended (roughly) according to the todo-l
 I'm going to be reading (and most likely loosely following) the book [The implementation of functional programming languages by Simon Peyton Jones](https://www.microsoft.com/en-us/research/publication/the-implementation-of-functional-programming-languages/ )
 as I go along.
 
+Before now I was doing things pretty ad-hoc, which was fun, but now its time to do things "properly"
+Check [the spec](spec.md) for more exact details.
+
 Features/TODOs:
 - [x] HM type inference
 - [x] letrecs/recusion
