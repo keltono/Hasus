@@ -6,93 +6,75 @@ import Expr
 import Type
 import Data.Maybe (fromJust)
 import Control.Applicative (liftA2)
+import Data.Map (Map)
+import qualified Data.Map as Map
 
 data Val 
   = VVar String
   | VApp Val Val
   | VLam String (Val -> Val)
+  | VCon String [Val]
   | VBool Bool
   | VInt Integer 
   | VChar Char
     
-type Env' = [(String,Val)]
+type VEnv = Map String Val
 
-expToVal :: Expr -> Val
-expToVal (Int i) = VInt i
-expToVal (Var s) = VVar s
-expToVal (Bool b) = VBool b
-expToVal (Char c) = VChar c
-expToVal (Lam s e) = VLam s (\_ -> expToVal e)
-expToVal (App e1 e2) = VApp (expToVal e1) (expToVal e2)
-expToVal (Let s !e1 e2) = VApp (VLam s (\_ -> expToVal e2)) (expToVal e1)
-
-
-eval :: Env' -> Expr -> Val
+eval :: VEnv -> Expr -> Val
 eval env = \case
-  Int i            -> VInt i
-  Bool b           -> VBool b
-  Char c           -> VChar c
-  Lam x t          -> VLam x (\u -> eval ((x,u):env) t)
-  App l r          -> eval env l `app` eval env r
-  Var x            -> fromJust $ lookup x env 
-  Let f !x b     -> 
+  Int i       -> VInt i
+  Bool b      -> VBool b
+  Char c      -> VChar c
+  Con c l     -> VCon c $ map (eval env) l
+  Lam x t     -> VLam x (\u -> eval (Map.insert x u env) t)
+  App l r     -> eval env l `app` eval env r
+  Var x       -> fromJust $ Map.lookup x env 
+  Let f !x b  -> 
     -- laziness saves the day!
-    let env'  = (f, eval env' x):env in
+    let env'  = Map.insert f (eval env' x) env in
         eval env' b
   
 app :: Val -> Val -> Val
 app (VLam _ t) x = t x
 app l r        = VApp l r
 
-fresh :: [String] -> String -> String
-fresh _ "_" = "_"
-fresh ns x   =
-  if x `elem` ns then
-            fresh ns (x ++ "'")
-            else
-             x
+quote ::  Val -> Either String Expr
+quote  = \case
+  VVar x    -> return $ Var x
+  VApp t u  -> liftA2 App (quote t) (quote u)
+  VLam _ _  -> Left "cannot print Lambda" 
+  -- just mapping quote leads to a [Either String Expr] instead of a
+  -- Either String [Expr]
+  -- mapping, then turning t m a into m t b is exactly what mapM is for.
+  -- We then use fmap to apply the constructor to the inside expression, 
+  -- leading to Either String Expr (Where the Expr is a Con)
+  -- A somewhat verbose explanation, but lines like this can be somewhat instruitable without some context
+  VCon c l  -> Con c <$> mapM quote l
+  VBool b   -> return $ Bool b
+  VChar c   -> return $ Char c
+  VInt i    -> return $ Int i
 
-quote :: [String] -> Val -> Either String Expr
-quote ns = \case
-  VVar x     -> return $ Var x
-  VApp t u   -> liftA2 App (quote ns t)  (quote ns u)
-  VLam _ _   -> Left "cannot print Lambda" 
-  VBool b    -> return $ Bool b
-  VChar c    -> return $ Char c
-  VInt i     -> return $ Int i
+nf :: VEnv -> Expr -> Either String Expr
+nf env = quote . eval env
 
-nf :: Env' -> Expr -> Either String Expr
-nf env = quote (map fst env) . eval env
-
-interpret :: Expr -> Env' -> Either String Expr
+interpret :: Expr -> VEnv -> Either String Expr
 interpret expr env =
-  -- TODO maybe make it so it doesn't try to eval if typeInfer fails?
-  env' >>= \env'' -> typeInfer expr (env''<>startEnv) >> nf (env<>startEnv') expr 
-  where 
-    env' :: Either String Env
-    env' =
-      -- assumption: expressions in the enviroment can only depend on things later in the list
-      let (names,values) = unzip env in
-        let temp = reverse $  zip (map Var names) $ map (quote names) values  in 
-            -- just turned a 5 line function of type [(a,Either b c)] -> Either b [(a,c)]
-            -- into "mapM sequence"
-            -- monads are cool
-            -- A lot of the time it feels like your under layers of monads that you need to dig yourself out of to get to the data
-            -- but it's worth it to be able to write highly generic and nice code, i'd say
-            mapM sequence temp >>= \temp' -> typeInferBatch temp' []
+   nf (env<>startVEnv) expr 
 
-typeInferBatch :: [(Expr,Expr)] -> [(Expr,Type)] -> Either String Env
-typeInferBatch ((var,val):env') env = 
-  typeInfer val env >>= \(_,ty) -> typeInferBatch env' ((var,ty):env)
-typeInferBatch [] env = return env
+inter :: Expr -> Either String Expr
+inter = nf startVEnv
 
-startEnv' :: Env' 
-startEnv' = [("+",plus),("-",minus),("*",times),("==",eq),("~",neg)]
+
+
+startVEnv :: VEnv 
+startVEnv = Map.fromList [("+",plus),("-",minus),("*",times),("==",eq),("~",neg),("head", hd), ("tail", tl)]
 startEnv :: Env
 startEnv = [(Var "~", Arrow Integer Integer),(Var "+",Arrow Integer (Arrow Integer Integer)),(Var "-",Arrow Integer (Arrow Integer Integer)),(Var "*",Arrow Integer (Arrow Integer Integer)),(Var "==",Arrow (Tyvar 'a') (Arrow (Tyvar 'a') Boolean))]
 
 -- built in functions
 -- the symbol for negation after parsing is '~'
+
+
 neg :: Val
 neg = VLam "x" (\(VInt xi) -> VInt (-xi))
 
@@ -120,5 +102,25 @@ eq = VLam "x" (\x -> VLam "y" (\y ->
     _ -> error "invalid eq"
  ))
 
+hd :: Val
+hd = VLam "x" (\case
+      VCon "Cons" (h:_) -> h
+      VCon "Nil"  []    -> error "head used on empty list"
+    )
+tl :: Val
+tl = VLam "x" (\case
+      VCon "Cons" (_:[VCon x y]) -> VCon x y
+      VCon "Nil"  []    -> error "tail used on empty list"
+    )
+
+
+exampleList :: Expr
+exampleList = Con "Cons" [Int 1, Con "Cons" [Int 2, Con "Nil" [] ]]
+
+one :: Expr 
+one = App (Var "head") exampleList
+
+twoSingleton :: Expr 
+twoSingleton = App (Var "tail") exampleList
 -- frac :: Integer -> Either String Expr
 -- frac arg = interpret (Let "f" (Lam "x" (IfThenElse (App (App (Var "==") (Var "x")) (Int 0)) (Int 1) (App (App (Var "*") (Var "x")) (App (Var "f") (App (App (Var "-") (Var "x")) (Int 1)))))) (App (Var "f") (Int arg))) []

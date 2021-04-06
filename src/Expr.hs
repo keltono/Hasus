@@ -1,5 +1,7 @@
 module Expr where
 
+type Constructor = String
+
 data Expr = 
   Int Integer
   | Bool Bool
@@ -8,6 +10,7 @@ data Expr =
   | App Expr Expr
   | Let String Expr Expr 
   | Var String
+  | Con Constructor [Expr]
   deriving Eq
 
 data Type = 
@@ -33,3 +36,4 @@ instance Show Expr where
   show (App e e')     = "(" ++  show e ++ " " ++ show e' ++ ")"
   show (Let f e b)    = "let " ++ f ++ " = " ++ show e ++ " in " ++ show b
   show (Var string)   = string
+  show (Con cnstr l)  = "(" ++ cnstr ++ concatMap ((\x -> " " ++ x ++ " "). show ) l ++ ")"

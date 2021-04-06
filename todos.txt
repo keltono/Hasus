@@ -1,5 +1,7 @@
-- General renaming/refactor
-  - What env is what?
+- Add parsing of data constuctors
+- Pattern matching
+- Typechecking overhaul
+- Ability to add data types
 - If something is not defined in a function, check and see if it defined later in the same file
   - error if something is defined twice at the top level?
 - Type annotations
