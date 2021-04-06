@@ -64,7 +64,6 @@ main = do
             Left err -> putStrLn $ "Error in Type Inference: " ++ err 
             Right strTypeList -> do
               print $ map (\(s,t) -> s ++ " : " ++ show t ) strTypeList 
-               -- case interpret (snd $ head mainDef) 
         _ -> putStrLn "ERROR: program has more than one main function"
 
   -- case typeInfer expr startEnv of

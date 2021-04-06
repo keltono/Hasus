@@ -22,10 +22,9 @@ expToVal (Int i) = VInt i
 expToVal (Var s) = VVar s
 expToVal (Bool b) = VBool b
 expToVal (Char c) = VChar c
-expToVal (Lam s e) = VLam s (\u -> expToVal e)
+expToVal (Lam s e) = VLam s (\_ -> expToVal e)
 expToVal (App e1 e2) = VApp (expToVal e1) (expToVal e2)
-expToVal (Let s !e1 e2) = VApp (VLam s (\u -> expToVal e2)) (expToVal e1)
-
+expToVal (Let s !e1 e2) = VApp (VLam s (\_ -> expToVal e2)) (expToVal e1)
 
 
 eval :: Env' -> Expr -> Val
