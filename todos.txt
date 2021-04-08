@@ -1,16 +1,13 @@
 - Add parsing of data constuctors
-- Pattern matching
 - lets with multiple defintions/ mutual recusion
 - Typechecking overhaul
 - Type annotations
 - What types are valid when
 - Ability to add data types
-- Recusive datatypes?
+- Recusive datatypes
 - Seperate lexing/parsing stages
 - If something is not defined in a function, check and see if it defined later in the same file
   - error if something is defined twice at the top level?
-- Type annotations
-- Redo type inference in perperation for ADTs and typclasses
 
 PLAN:
     - Redo parsing to have a seperate lexing stage
