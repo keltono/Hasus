@@ -1,6 +1,9 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE BangPatterns #-}
+--TODO remove this line soon
+-- {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
+{-# OPTIONS_GHC -Wno-name-shadowing #-}
 module Eval where
 import Expr 
 import Type
@@ -8,7 +11,8 @@ import Data.Maybe (fromJust)
 import Control.Applicative (liftA2)
 import Data.Map (Map)
 import qualified Data.Map as Map
-
+import Data.List (foldl')
+import Control.Monad.State.Lazy 
 data Val 
   = VVar String
   | VApp Val Val
@@ -33,6 +37,44 @@ eval env = \case
     -- laziness saves the day!
     let env'  = Map.insert f (eval env' x) env in
         eval env' b
+  Match e ps  -> evalMatch (eval env e) ps
+    where
+    evalMatch :: Val -> [(Pattern,Expr)] -> Val
+    evalMatch (VApp _ _) _  = undefined
+    evalMatch (VLam _ _) _  = error "Can't pattern match on function"
+    evalMatch (VVar s)   l  = evalMatch (fromJust $ Map.lookup s env) l
+    evalMatch val l = eval env' e
+        where
+            (p,e) = head (filter (patternDoesMatch val . fst) l)
+            (_,env') = runState (computePatternBindings $ return (p,val)) env
+
+    patternDoesMatch :: Val -> Pattern -> Bool
+    patternDoesMatch _ PWild                      = True
+    patternDoesMatch _ (PVar _)                   = True
+    patternDoesMatch (VBool b) (PAtom (ABool b')) = b == b'
+    patternDoesMatch (VBool _) _                  = False
+    patternDoesMatch (VInt i) (PAtom (AInt i'))   = i == i'
+    patternDoesMatch (VInt _) _                   = False
+    patternDoesMatch (VChar c) (PAtom (AChar c')) = c == c'
+    patternDoesMatch (VChar _) _                  = False
+    patternDoesMatch _ (PAtom _)                  = False
+    patternDoesMatch (VCon c vs) (PCon c' pats)   = c == c' && foldl' (&&) True (zipWith patternDoesMatch vs pats)
+    patternDoesMatch _ (PCon _ _)                 = False
+
+    computePatternBindings :: State VEnv (Pattern,Val) -> State VEnv (Pattern,Val)
+    -- Creates a state which eventually becomes the set of bindings of things in the pattern to things in the expression being matched on
+    -- these bindings are then used to eval the expression to the right of the matched pattern
+    -- This one is kinda sick
+    computePatternBindings s = do
+        start <- s
+        state <- get
+        case start of 
+          (PCon _ pats, VCon _ vals) -> mapM_ (computePatternBindings . return) (zip pats vals) >> return start
+          (PCon _ _, _)              -> undefined
+          (PVar s, v)                -> put (Map.insert s v state) >> return start
+          (PAtom _, _)               -> s
+          (PWild, _)                 -> s
+
   
 app :: Val -> Val -> Val
 app (VLam _ t) x = t x
@@ -106,16 +148,30 @@ hd :: Val
 hd = VLam "x" (\case
       VCon "Cons" (h:_) -> h
       VCon "Nil"  []    -> error "head used on empty list"
+      _ -> undefined
     )
 tl :: Val
 tl = VLam "x" (\case
       VCon "Cons" (_:[VCon x y]) -> VCon x y
       VCon "Nil"  []    -> error "tail used on empty list"
+      _ -> undefined
     )
 
 
 exampleList :: Expr
 exampleList = Con "Cons" [Int 1, Con "Cons" [Int 2, Con "Nil" [] ]]
+
+testMatch  :: Expr
+testMatch = Match exampleList [(PCon "Cons" [PVar "h", PWild], App (App (Var "+") (Var "h")) (Int 9) ), (PCon "Nil" [], Int 42)]
+
+testMatch'  :: Expr
+testMatch' = Match (Con "Nil" []) [(PCon "Cons" [PVar "h", PWild], App (App (Var "+") (Var "h")) (Int 2) ), (PCon "Nil" [], Int 42)]
+
+testMatch''  :: Expr
+testMatch'' = Match exampleList [(PCon "Cons" [PVar "h", PCon "Cons" [PVar "h'", PWild]], App (App (Var "+") (Var "h")) (Var "h'") ), (PCon "Nil" [], Int 99)]
+
+testMatch'''  :: Expr
+testMatch''' = Match exampleList [(PCon "Nil" [], Int 42)]
 
 one :: Expr 
 one = App (Var "head") exampleList

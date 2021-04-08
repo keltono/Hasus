@@ -16,6 +16,7 @@ I'm going to be reading (and most likely loosely following) the book [The implem
 as I go along.
 
 Before now I was doing things pretty ad-hoc, which was fun, but now its time to do things "properly"
+Currently Typechecking is broken while I extend the core language.
 Check [the spec](spec.md) for more exact details.
 
 Features/TODOs:
@@ -25,12 +26,18 @@ Features/TODOs:
 - [x] Parsing
   - [x] math operators
   - [x] general infix operators
+- [x] Data Constructors
+- [x] Pattern Matching
+- [ ] Multi-function lets / mutual recursion
+- [ ] Parsing for Data Constructors
+- [ ] Parsing for Pattern Matching 
+- [ ] List Syntax
+- [ ] Tuple Syntax
+- [ ] Type annotations
+- [ ] Algorithm-W type inference
+- [ ] Algebriac data types
 - [ ] top level binds (ability to define functions not in a let expression)
   - currently just evaluates one expression
-- [ ] Lists
-- [ ] Tuples
-- [ ] Algebriac data types
-- [ ] Pattern Matching
 - [ ] Haskell-style module system
 - [ ] user-defined infix operators
 - [ ] [...]

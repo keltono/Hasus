@@ -1,7 +1,12 @@
 - Add parsing of data constuctors
 - Pattern matching
+- lets with multiple defintions/ mutual recusion
 - Typechecking overhaul
+- Type annotations
+- What types are valid when
 - Ability to add data types
+- Recusive datatypes?
+- Seperate lexing/parsing stages
 - If something is not defined in a function, check and see if it defined later in the same file
   - error if something is defined twice at the top level?
 - Type annotations
@@ -13,7 +18,3 @@ PLAN:
     - Temporarily get rid of type inference in order to make adding algebriac datatypes easier
     - Add type annotations
     - Reimplement type inference Using Algorithm W modified to allow algebriac datatypes
-Somewhere in there redefine the `Env`s to be more clear. Additonally, add valid types to the enviroment for interpretation.
-All of the top level functions should be added to the enviroment at once perhaps?
-
-Maybe use a Map instead of a tuple?
