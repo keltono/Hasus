@@ -16,7 +16,6 @@ data Val
   | VApp Val Val
   | VLam String (Val -> Val)
   | VCon String [Val]
-  | VBool Bool
   | VInt Integer 
   | VChar Char
     
@@ -25,7 +24,6 @@ type VEnv = Map String Val
 eval :: VEnv -> Expr -> Val
 eval env = \case
   Int i       -> VInt i
-  Bool b      -> VBool b
   Char c      -> VChar c
   Con c l     -> VCon c $ map (eval env) l
   Lam x t     -> VLam x (\u -> eval (Map.insert x u env) t)
@@ -49,8 +47,6 @@ eval env = \case
     patternDoesMatch :: Val -> Pattern -> Bool
     patternDoesMatch _ PWild                      = True
     patternDoesMatch _ (PVar _)                   = True
-    patternDoesMatch (VBool b) (PAtom (ABool b')) = b == b'
-    patternDoesMatch (VBool _) _                  = False
     patternDoesMatch (VInt i) (PAtom (AInt i'))   = i == i'
     patternDoesMatch (VInt _) _                   = False
     patternDoesMatch (VChar c) (PAtom (AChar c')) = c == c'
@@ -90,7 +86,6 @@ quote  = \case
   -- leading to Either String Expr (Where the Expr is a Con)
   -- A somewhat verbose explanation, but lines like this can be somewhat instruitable without some context
   VCon c l  -> Con c <$> mapM quote l
-  VBool b   -> return $ Bool b
   VChar c   -> return $ Char c
   VInt i    -> return $ Int i
 
@@ -136,9 +131,8 @@ times = VLam "x" (\(VInt xi) ->
 eq :: Val
 eq = VLam "x" (\x -> VLam "y" (\y ->  
   case (x,y) of 
-    (VInt xi, VInt yi)   -> VBool $ xi == yi
-    (VBool xi, VBool yi) -> VBool $ xi == yi
-    (VChar xi, VChar yi) -> VBool $ xi == yi
+    (VInt xi, VInt yi)   -> if xi == yi then VCon "True" [] else VCon "False" []
+    (VChar xi, VChar yi) -> if xi == yi then VCon "True" [] else VCon "False" []
     _ -> error "invalid eq"
  ))
 

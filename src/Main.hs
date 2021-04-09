@@ -1,5 +1,5 @@
 module Main where
--- import Eval
+import Eval
 -- import Type
 import Expr
 import Parse
@@ -21,6 +21,15 @@ parseStdin = parseString "(stdin)" =<< getContents
 parseFile :: FilePath -> IO [(String,Expr)]
 parseFile x = parseString x =<< readFile x
 
+parseAndEval ::  String -> Expr
+parseAndEval src = 
+    case parse (ws *> parseExpr <* eof) "file" src of
+    Left _ ->  error "parseError"
+    Right e -> case inter e of
+                 Right r -> r
+                 Left er  -> error $ "eval error " <> er
+
+
 main :: IO ()
 main = do 
   -- args <- getArgs
@@ -35,3 +44,4 @@ main = do
   --       1 -> 
   --             print $ map (\(s,t) -> s ++ " : " ++ show t ) strTypeList 
   --       _ -> putStrLn "ERROR: program has more than one main function"
+

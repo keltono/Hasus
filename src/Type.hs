@@ -122,7 +122,6 @@ typeInfer (Let f x b) env = do
 
 typeInfer (Char _) env = return (env, Character)
 typeInfer (Int _) env  = return (env, Integer)
-typeInfer (Bool _) env = return (env, Boolean)
 
 --helper functions
 --assumes ($1,_) `elem` $3

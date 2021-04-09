@@ -2,7 +2,7 @@ module Expr where
 
 type Constructor = String
 
-data Atom = AInt Integer | ABool Bool | AChar Char
+data Atom = AInt Integer | AChar Char
     deriving (Eq)
 
 data Pattern = 
@@ -10,11 +10,10 @@ data Pattern =
       | PWild
       | PAtom Atom
       | PCon Constructor [Pattern]
-    deriving (Eq)
+    deriving (Eq, Show)
 
 data Expr = 
   Int Integer
-  | Bool Bool
   | Char Char
   | Lam String Expr
   | App Expr Expr
@@ -27,7 +26,7 @@ data Expr =
 data Type = 
   Integer
     | Character
-    | Boolean
+    | Boolean --TODO remove when ADTs are added
     | Arrow Type Type
     | Tyvar Char 
     deriving Eq
@@ -43,7 +42,6 @@ instance Show Type where
 instance Show Expr where
   show (Int i)        = show i
   show (Char c)       = show c
-  show (Bool b)       = show b
   show (Lam x b)      = "(λ"++ x ++ " -> " ++ show b ++ ")"
   show (App e e')     = "(" ++  show e ++ " " ++ show e' ++ ")"
   show (Let f e b)    = "let " ++ f ++ " = " ++ show e ++ " in " ++ show b
@@ -54,11 +52,10 @@ instance Show Expr where
 
 instance Show Atom where
     show (AInt i) = show i 
-    show (ABool b) = show b
     show (AChar c) = show c
 
-instance Show Pattern where 
-    show (PVar s) = s
-    show PWild   = "_"
-    show (PAtom a) = show a
-    show (PCon c ps) = c ++ concatMap ((' ':) . show) ps
+-- instance Show Pattern where 
+--     show (PVar s) = s
+--     show PWild   = "_"
+--     show (PAtom a) = show a
+--     show (PCon c ps) = c ++ concatMap ((' ':) . show) ps
