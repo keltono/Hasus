@@ -10,7 +10,7 @@ data Pattern =
       | PWild
       | PAtom Atom
       | PCon Constructor [Pattern]
-    deriving (Eq, Show)
+    deriving (Eq)
 
 data Expr = 
   Int Integer
@@ -54,8 +54,8 @@ instance Show Atom where
     show (AInt i) = show i 
     show (AChar c) = show c
 
--- instance Show Pattern where 
---     show (PVar s) = s
---     show PWild   = "_"
---     show (PAtom a) = show a
---     show (PCon c ps) = c ++ concatMap ((' ':) . show) ps
+instance Show Pattern where 
+    show (PVar s) = s
+    show PWild   = "_"
+    show (PAtom a) = show a
+    show (PCon c ps) = c ++ concatMap ((' ':) . show) ps
