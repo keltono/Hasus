@@ -1,0 +1,4 @@
+def main = 
+    match True with
+    | False -> 0
+    | True  -> 1

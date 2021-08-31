@@ -26,18 +26,18 @@ data Expr =
 data Type = 
   Integer
     | Character
-    | Boolean --TODO remove when ADTs are added
     | Arrow Type Type
-    | Tyvar Char 
+    | Constructor String [Type]
+    | Tyvar String
     deriving Eq
 
 
 instance Show Type where
-  show Integer     = "Integer"
-  show Boolean     = "Boolean"
-  show Character   = "Character"
-  show (Tyvar a)   = '\'':a:"" --borrowing ocaml syntax
-  show (Arrow a b) = '(' : show a  ++ " -> " ++ show b ++ ")"
+    show Integer     = "Integer"
+    show Character   = "Character"
+    show (Tyvar a)   = '\'' : a ++ "" --borrowing ocaml syntax
+    show (Arrow a b) = '(' : show a  ++ " -> " ++ show b ++ ")"
+    show (Constructor c tys) = c ++ '(' : concatMap ( (' ':) . show) tys ++ ")"
 
 instance Show Expr where
   show (Int i)        = show i

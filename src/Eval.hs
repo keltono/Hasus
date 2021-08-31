@@ -9,7 +9,7 @@ import Data.Maybe (fromJust)
 import Control.Applicative (liftA2)
 import Data.Map (Map)
 import qualified Data.Map as Map
-import Data.List (foldl')
+-- import Data.List (foldl')
 import Control.Monad.State.Lazy 
 data Val 
   = VVar String
@@ -52,7 +52,7 @@ eval env = \case
     patternDoesMatch (VChar c) (PAtom (AChar c')) = c == c'
     patternDoesMatch (VChar _) _                  = False
     patternDoesMatch _ (PAtom _)                  = False
-    patternDoesMatch (VCon c vs) (PCon c' pats)   = c == c' && foldl' (&&) True (zipWith patternDoesMatch vs pats)
+    patternDoesMatch (VCon c vs) (PCon c' pats)   = c == c' && and (zipWith patternDoesMatch vs pats)
     patternDoesMatch _ (PCon _ _)                 = False
 
     computePatternBindings :: State VEnv (Pattern,Val) -> State VEnv (Pattern,Val)
@@ -104,7 +104,8 @@ inter = nf startVEnv
 startVEnv :: VEnv 
 startVEnv = Map.fromList [("+",plus),("-",minus),("*",times),("==",eq),("~",neg),("head", hd), ("tail", tl)]
 startEnv :: Env
-startEnv = [(Var "~", Arrow Integer Integer),(Var "+",Arrow Integer (Arrow Integer Integer)),(Var "-",Arrow Integer (Arrow Integer Integer)),(Var "*",Arrow Integer (Arrow Integer Integer)),(Var "==",Arrow (Tyvar 'a') (Arrow (Tyvar 'a') Boolean))]
+startEnv = [(Var "~", Arrow Integer Integer),(Var "+",Arrow Integer (Arrow Integer Integer)),(Var "-",Arrow Integer (Arrow Integer Integer)),
+            (Var "*",Arrow Integer (Arrow Integer Integer)),(Var "==",Arrow (Tyvar "a") (Arrow (Tyvar "a") (Constructor "Boolean" [])))]
 
 -- built in functions
 -- the symbol for negation after parsing is '~'

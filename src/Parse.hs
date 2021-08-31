@@ -8,15 +8,46 @@ import Control.Applicative (liftA2)
 -- import System.IO.Unsafe (unsafePerformIO)
 import Control.Monad.Identity
 
+--TODO(s)
+-- add comments
+-- add mutually recursive defs/lets
+-- add first class list parsing
+
 ws :: Parsec String u ()
 -- TODO add comments
 -- that was giving me issues for some reason...
 ws = spaces
 
-parseProgram :: Parsec String u [(String,Expr)]
-parseProgram = many parseFuncDef
+parseProgram :: Parsec String u [Either (String, Type) (String,Expr)]
+parseProgram = many (parseFuncDef <|> parseTypeAnnotation)
 
-parseFuncDef :: Parsec String u (String,Expr)
+
+parseTypeAnnotation :: Parsec String u (Either (String, Type) b)
+parseTypeAnnotation = do
+    name <- parseId 
+    ws
+    _ <- string "::"
+    ws
+    ty <- parseType
+    pure $ Left (name,ty)
+
+parseType :: Parsec String u Type
+parseType = 
+    between ws ws
+        ((string "Integer" >> pure Integer) 
+            <|> (string "Character" >> pure Character) 
+            <|> between (char ')') (char ')') parseType
+            <|> (parseConstructor >>= \c -> ws >> many parseType >>= \tys -> pure (Constructor c tys))
+            <|> foldl1 Arrow <$> many1 (parseType >>= \ty -> ws >> string "->" >> ws >> pure ty) )
+
+
+
+parseConstructor :: Parsec String u String
+parseConstructor = liftA2 (:) upper (many alphaNum)
+
+--TODO ability to define multiple functions at once for mutual recursion
+--TODO arguements (duh)
+parseFuncDef :: Parsec String u (Either a (String, Expr))
 parseFuncDef = do
   _ <- string "def" 
   ws
@@ -25,13 +56,13 @@ parseFuncDef = do
   _ <- char '='
   ws
   body <- parseExpr
-  return (name,body)
+  pure $ Right (name, body)
 
 isKeyword :: String -> Bool
-isKeyword = flip elem ["in","λ","let","letrec","if","then","else", "match", "with"]
+isKeyword = flip elem ["in","λ","let","letrec","if","then","else", "match", "with", "def"]
 parseId :: Parsec String u String
 parseId = 
-    try (liftA2 (:) lower (option "" (many1 alphaNum)) >>= \x -> if isKeyword x then fail $ "ERROR: keyword " <> x <> " used as id" else return x)
+    try (liftA2 (:) lower (option "" (many1 alphaNum)) >>= \x -> if isKeyword x then fail $ "ERROR: keyword " <> x <> " used as id" else pure x)
 
 parseLambda :: Parsec String u Expr
 parseLambda = do
@@ -70,16 +101,16 @@ parseIfThenElse = do
   _ <- string "else"
   ws
   e <- parseExpr
-  return $ Match c [(PCon "True" [], t),(PCon "False" [], e)]
+  pure $ Match c [(PCon "True" [], t),(PCon "False" [], e)]
 
 
 parsePattern :: Parsec String u Pattern
 parsePattern = 
     ws *> ( 
-        (char '_' >> return PWild) <|> 
+        (char '_' >> pure PWild) <|> 
         (PAtom . AInt <$> (read <$> many1 digit)) <|>
         (PAtom . AChar <$> between (char '\'') (char '\'') (noneOf "\'")) <|>
-        (liftA2 (:) upper (many alphaNum) >>= \c -> ws >> many parsePattern >>= \a -> return $ PCon c a) <|>
+        (liftA2 (:) upper (many alphaNum) >>= \c -> ws >> many parsePattern >>= \a -> pure $ PCon c a) <|>
         (PVar <$> parseId) 
          ) <* ws
 
@@ -92,7 +123,7 @@ parseMatch = do
     ws
     _ <- string "with"
     b <- many1 parseMatchLine
-    return $ Match e b
+    pure $ Match e b
         where 
             parseMatchLine :: Parsec String u (Pattern,Expr)
             parseMatchLine = do
@@ -105,11 +136,7 @@ parseMatch = do
                 ws
                 e <- parseExpr
                 ws
-                return (p,e)
-
-
--- parseBool :: Parsec String u Expr
--- parseBool = (string "True" $> Bool True) <|> (string "False" $> Bool False)
+                pure (p,e)
 
 --TODO escape Characters
 parseChar :: Parsec String u Expr
@@ -121,16 +148,15 @@ parseInt = Int . read <$> many1 digit
 parseCon :: Parsec String u Expr
 parseCon = do
     ws
-    c <- liftA2 (:) upper (many alphaNum)
+    c <- parseConstructor
     ws
     a <- try $ many parseExpr
     ws
-    return $ Con c a
+    pure $ Con c a
 
 parseApp :: Parsec String u Expr
-parseApp = foldl1 App <$> (parseAtom >>= \atom -> many ((parseLit <|> parseAtom) <* ws) >>= \rest-> return (atom:rest))
+parseApp = foldl1 App <$> (parseAtom >>= \atom -> many ((parseLit <|> parseAtom) <* ws) >>= \rest-> pure (atom:rest))
 
--- bools might get parsed as Ids without this seperate category
 parseLit :: Parsec String u Expr
 parseLit = ws *> (parseChar <|> parseInt <|> parseCon) <* ws
 
@@ -148,6 +174,7 @@ parseExpr = buildExpressionParser table parseExpr'
 
 -- might eventually add user-defined infix exprs?
 -- would be a bit of a pain...
+
 table :: [[Operator String  u Identity Expr ]]
 table = [ [prefix "-" (App (Var "~"))]
          , [binary "*"  AssocLeft, binary "/" AssocLeft ]

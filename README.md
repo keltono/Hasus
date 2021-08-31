@@ -20,7 +20,6 @@ Currently Typechecking is broken while I extend the core language.
 Check [the spec](spec.md) for more exact details.
 
 Features/TODOs:
-- [x] HM type inference
 - [x] letrecs/recusion
 - [x] Evaluation/Beta reduction
 - [x] Parsing
@@ -28,16 +27,17 @@ Features/TODOs:
   - [x] general infix operators
 - [x] Data Constructors
 - [x] Pattern Matching
-- [ ] Multi-function lets / mutual recursion
-- [ ] Parsing for Data Constructors
-- [ ] Parsing for Pattern Matching 
+- [x] Parsing for Pattern Matching 
+- [x] top level binds (ability to define functions not in a let expression)
+- [x] Parsing for Data Constructors
 - [ ] List Syntax
 - [ ] Tuple Syntax
+- [ ] Multi-function lets / mutual recursion
+- [ ] HM type inference
+- [ ] User defined (algebriac) types
+    - You can technically do this currently, if only because the interpreter doesn't check if your constructors have been defined
 - [ ] Type annotations
 - [ ] Algorithm-W type inference
-- [ ] Algebriac data types
-- [ ] top level binds (ability to define functions not in a let expression)
-  - currently just evaluates one expression
 - [ ] Haskell-style module system
 - [ ] user-defined infix operators
 - [ ] [...]
@@ -53,7 +53,6 @@ misc. feature ideas:
 Honestly I haven't used haskell enough to find any pain points that seem addressable and not dealt with by compiler extensions. 
 Nothing really bugs me about the language.
 Interested other people's issues with the language that still involve remaining purely functional, and keeping HM types.
-
 Shout out to [plzoo]( https://github.com/andrejbauer/plzoo ) and [elaborationzoo]( https://github.com/AndrasKovacs/elaboration-zoo ), both of which were used as references for various parts of implementation.
 
 
