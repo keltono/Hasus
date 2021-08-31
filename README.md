@@ -3,8 +3,9 @@
 a hobbyist language intended to be very similar to an eager haskell.
 
 ## Syntax
-At the moment, syntax is more or less a strict subset of haskell.
-The [examples folder](examples/) is the closest thing there is to a spec.
+At the moment, syntax is similar to haskell, with some things borrowed from OCaml (and the "def" keyword from python).
+Notably, hasus is not whitespace-sensitive.
+There is no spec right now, but the [examples folder](examples/) should be resonably comprehensive in showing off the syntax.
 ## Semantics
 As said above, it is itended to very similar to haskell,
 except eager instead of lazy, and with various minor tweaks.
