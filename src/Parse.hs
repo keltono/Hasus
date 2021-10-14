@@ -108,6 +108,7 @@ parsePattern :: Parsec String u Pattern
 parsePattern = 
     ws *> ( 
         (char '_' >> pure PWild) <|> 
+        (char '[' >> foldl (\x y -> PCon "Cons" [y,x]) (PCon "Nil" []) <$> (parsePattern `sepBy` (ws >> char ',' >> ws)) <* char ']') <|>
         (PAtom . AInt <$> (read <$> many1 digit)) <|>
         (PAtom . AChar <$> between (char '\'') (char '\'') (noneOf "\'")) <|>
         (liftA2 (:) upper (many alphaNum) >>= \c -> ws >> many parsePattern >>= \a -> pure $ PCon c a) <|>
@@ -154,11 +155,20 @@ parseCon = do
     ws
     pure $ Con c a
 
+parseList :: Parsec String u Expr
+parseList = do
+    ws
+    _ <- char '['
+    content <- foldr (\x y -> Con "Cons" [x,y]) (Con "Nil" []) <$> (parseExpr `sepBy` (ws >> char ',' >> ws))
+    _ <- char ']'
+    pure content
+
+
 parseApp :: Parsec String u Expr
 parseApp = foldl1 App <$> (parseAtom >>= \atom -> many ((parseLit <|> parseAtom) <* ws) >>= \rest-> pure (atom:rest))
 
 parseLit :: Parsec String u Expr
-parseLit = ws *> (parseChar <|> parseInt <|> parseCon) <* ws
+parseLit = ws *> (parseList <|> parseChar <|> parseInt <|> parseCon) <* ws
 
 parseAtom :: Parsec String u Expr
 parseAtom = ws *> (between (char '(') (char ')') parseExpr <|> Var <$> parseId ) <* ws
@@ -166,7 +176,7 @@ parseAtom = ws *> (between (char '(') (char ')') parseExpr <|> Var <$> parseId )
 parseExpr' :: Parsec String u Expr
 parseExpr' = 
   ws *> 
-    choice [parseLet, parseLambda, parseLit, parseIfThenElse, parseMatch, parseApp, parseAtom]
+    choice [try parseLet, parseLambda, parseLit, try parseIfThenElse, try parseMatch, parseApp, parseAtom]
         <* ws
 
 parseExpr :: Parsec String u Expr

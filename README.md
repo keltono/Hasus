@@ -5,11 +5,10 @@ a hobbyist language intended to be very similar to an eager haskell.
 ## Syntax
 At the moment, syntax is similar to haskell, with some things borrowed from OCaml (and the "def" keyword from python).
 Notably, hasus is not whitespace-sensitive.
-There is no spec right now, but the [examples folder](examples/) should be resonably comprehensive in showing off the syntax.
+There is a [spec](spec.md), but not everything is implemented. Right now, the [examples folder](examples/) should be resonably comprehensive in showing off the currently valid syntax.
 ## Semantics
 As said above, it is itended to very similar to haskell,
 except eager instead of lazy, and with various minor tweaks.
-Currently, the language is more or less [HM](https://en.wikipedia.org/wiki/Hindley–Milner_type_system) without type constuctors. 
 There are three built in sorts (Integers, Chars, Bools), the function type, and polymorphic types as described in [Hindley-Milner](https://en.wikipedia.org/wiki/Hindley–Milner_type_system).
 The semantics of the language will be extended (roughly) according to the todo-list below.
 
@@ -31,14 +30,15 @@ Features/TODOs:
 - [x] Parsing for Pattern Matching 
 - [x] top level binds (ability to define functions not in a let expression)
 - [x] Parsing for Data Constructors
-- [ ] List Syntax
-- [ ] Tuple Syntax
+- [x] List Syntax
 - [ ] Multi-function lets / mutual recursion
+- [ ] pattern matching in lambdas
 - [ ] HM type inference
 - [ ] User defined (algebriac) types
     - You can technically do this currently, if only because the interpreter doesn't check if your constructors have been defined
 - [ ] Type annotations
 - [ ] Algorithm-W type inference
+- [ ] Tuples
 - [ ] Haskell-style module system
 - [ ] user-defined infix operators
 - [ ] [...]

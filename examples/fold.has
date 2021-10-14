@@ -1,0 +1,7 @@
+def main = 
+    fold (\x -> \y -> x + y) 0 [0,1,2,3,4]
+
+def fold = \f -> \base -> \list ->
+    match list with
+    | Cons h t -> fold f (f h base) t
+    | [] -> base

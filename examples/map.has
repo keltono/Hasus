@@ -1,0 +1,7 @@
+def main = 
+    map (\x -> x + 1) [1,2,3]
+def map = \f -> \l ->
+    match l with
+    | Cons h t -> Cons (f h) (map f t)
+    | Nil -> Nil
+

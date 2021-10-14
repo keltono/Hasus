@@ -1,4 +1,7 @@
 def main = 
     match True with
     | False -> 0
-    | True  -> 1
+    | True  -> 
+        match [1,2] with
+        | [_,2] -> 99
+        | _ -> 3
