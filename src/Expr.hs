@@ -23,21 +23,6 @@ data Expr =
   | Match Expr [(Pattern,Expr)]
   deriving Eq
 
-data Type = 
-  Integer
-    | Character
-    | Arrow Type Type
-    | Constructor String [Type]
-    | Tyvar String
-    deriving Eq
-
-
-instance Show Type where
-    show Integer     = "Integer"
-    show Character   = "Character"
-    show (Tyvar a)   = '\'' : a ++ "" --borrowing ocaml syntax
-    show (Arrow a b) = '(' : show a  ++ " -> " ++ show b ++ ")"
-    show (Constructor c tys) = c ++ '(' : concatMap ( (' ':) . show) tys ++ ")"
 
 instance Show Expr where
   show (Int i)        = show i

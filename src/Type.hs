@@ -1,222 +1,172 @@
+-- based on stephen diehl's hindley milner type inference article in the "write you a haskell" series
+-- extended to allow ADTs
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE LambdaCase #-}
 module Type where
--- import Data.List (foldl', find)
--- import Data.Maybe (mapMaybe)
--- import Data.Tuple (swap)
+import qualified Data.Map as Map
+import qualified Data.Set as Set
+import Control.Monad.State
+import Control.Monad.Except
 import Expr
 
-headSafe :: [a] -> Maybe a
-headSafe (x:_) = Just x
-headSafe []    = Nothing
+newtype TVar = TV String
+  deriving (Eq,Show,Ord)
+-- functions (at the type level) could theoretically be viewed as a special case of constructors, but we choose the make the distinction.
+data Type 
+  = TVar TVar
+  | TConst String
+  | TCon Constructor [Type]
+  | TArr Type Type
+  deriving (Eq,Show)
 
----- basic Hindley-Milner style type inference
----- Implemented off of memory -- I wanted to see how far I could get without looking up how its done properly
----- As such it ended being pretty hacky/bodgey/kludgey etc
----- Might have some bugs for cases I haven't tested, but it works for all that i have tested.
----- As it stands I think it *is* Hindley Milner 
----- Well, without type constuctors
-type Env = [(Expr,Type)]
+-- polymorphic types. If the list of tyvars is empty, then the type is monomorphic
+data Scheme = Forall [TVar] Type
+  deriving (Eq,Show)
 
---typeInfer :: Expr -> Env -> Either String (Env,Type) 
---typeInfer (Lam x expr) env = 
---  typeInfer expr ((Var x,getFreshTyVar env):env) >>= \(env',ty) ->
---  return (env,Arrow (getType env' (Var x)) ty) 
+newtype TypeEnv = TypeEnv (Map.Map String Scheme)
+  deriving (Semigroup, Monoid, Eq, Show)
 
-----TODO: add ability to deal with type spesifiers?
---typeInfer (App e1 e2) env = do
---  (env', ty1) <- typeInfer e1 env
---  (env'', ty2) <- typeInfer e2 env'
---  case ty1 of
---    Arrow (Tyvar a) ft2       -> return (env'', typeSub (Tyvar a) ty2 ft2)
-     
---    Arrow (Arrow l r) ft2     ->
---      case ty2 of 
---        -- need to be consistently polymorphic
---        -- e.g (a -> b -> b) != (a -> b -> a)
---        -- changes return type.
---        -- e.g (a->a)->a becomes (Int->Int)->Int,not (Int->Int)->a
---        Arrow l' r' -> 
---          let (eq, bindings) = arrowEquiv (Arrow l r) (Arrow l' r') [] in
---            let newTy = foldl' (\t (o,n) -> typeSub o n t) (Arrow l' r') 
---                               $ filter (not . isTyvar . snd) 
---                               $ map swap bindings in
---              let (_,bindings') = arrowEquiv (Arrow l r) newTy [] in
---                if eq
---                  then return (env'', foldl' (\ft2 (org,repl) -> typeSub org repl ft2 ) ft2 bindings' ) 
---                  else Left $  "incompatable function types between argument type'" ++ show (Arrow l r) 
---                               ++ "' and input type '" ++ show (Arrow l' r') ++ "' in  function application \n" ++ show ty1
---          where 
---            arrowEquiv :: Type -> Type -> [(Type,Type)] -> (Bool, [(Type,Type)])
---            arrowEquiv (Arrow l r)  (Arrow l' r') bindings = 
---              let (res,bindings') = arrowEquiv l l' bindings in
---                  if not res then 
---                             (False,bindings)
---                             else 
---                             arrowEquiv r r' bindings'
- 
---            -- this will seriously need to be reworked when typeclasses are added, obviously.
---            arrowEquiv (Tyvar a) x bindings = 
---              case find (\(y,_) -> y == Tyvar a) bindings of
---                Just (_,rt) -> (rt == x,bindings)
---                Nothing     -> (True, (Tyvar a, x):bindings)
---            arrowEquiv x (Tyvar a) bindings = 
---              case filter(\(_,y) -> y == Tyvar a) bindings of
---                -- should only be one binding from a concrete type to a tyvar
---                -- x is a concrete type, since the only other option (other than concrete or tyvar)
---                -- is an arrow, which is already covered
---                _:_:_    -> (False,bindings)
---                [(lt,_)] -> (lt == x,bindings)
---                []       -> (True, (x, Tyvar a):bindings)
---            arrowEquiv x y bindings = (x == y, bindings)
---        _ -> error "unreachable case in typechecking"
+testEnv :: TypeEnv
+testEnv = TypeEnv (Map.fromList [("Just", Forall [TV "a"] (TArr (TVar (TV "a")) (TCon "Maybe" [TVar (TV "a")]))), ("None", Forall [] (TCon "Maybe" []))])
 
---    Arrow ft1 ft2             ->
---      case ty2 of 
---       Tyvar _ -> return (replaceType env'' e2 ft1,ft2)
---       _       -> if ft1 == ty2 then
---                                 return (env'', ft2)
---                                 else
---                                 Left $ "Incorrect type in application " ++
---                                   show e1 ++ " : " ++ show (Arrow ft1 ft2) ++ 
---                                     " Applied to " ++
---                                       show e2 ++ " : " ++ show ty2
+newtype Unique = Unique { count :: Int }
+  deriving (Eq,Show)
+data TypeError
+  = UnificationFail Type Type
+  | InfiniteType TVar Type
+  | UnboundVariable String
+  deriving (Eq,Show)
 
+type Infer = ExceptT TypeError (State Unique)
 
+type Subst = Map.Map TVar Type
 
---    Tyvar a  -> 
---      case e1 of 
---        App f _ -> return (addArg f ty2 env'', Tyvar a)
---        Var f -> return (addArg (Var f) ty2 env'', Tyvar a)
+unInfer :: Infer a -> Either TypeError a
+unInfer m =  (evalState . runExceptT) m $ Unique {count = 0 }
 
+nullSubst :: Subst
+nullSubst = Map.empty
 
+compose :: Subst -> Subst -> Subst
+s1 `compose` s2 = Map.map (apply s1) s2 `Map.union` s1
 
---    _        -> Left $ "non function \'" ++ show e1 ++ ':' : show ty1 ++  "\' applied"
+class Substitutable a where
+  apply :: Subst -> a -> a
+  ftv   :: a -> Set.Set TVar
 
---typeInfer (Var x) env =
---  if isInEnv env (Var x) then 
---                         return (env,getType env (Var x)) 
---                         else 
---                         -- TODO maybe add a seperate env for things defined outside this expr?
---                         -- Would potentially lead to smarter tyvars
---                         Left $ "Variable " ++ x ++ " not in scope"
---                         -- let ty = getFreshTyVar env in return ((Var x,ty):env,ty)
----- TODO: I think it will try to extend a function type that is let bound, which is obviously bad
----- I think a clause in add arg should be able to fix this?
----- well, and changing the type of add arg to a just/either
---typeInfer (Let f x b) env = do
---  (_,ty) <- typeInfer x ((Var f,getFreshTyVar env):env)
---  typeInfer b ((Var f, ty):env)
+instance Substitutable Type where
+  apply _ (TConst a)     = TConst a
+  apply s t@(TVar a)     = Map.findWithDefault t a s
+  apply s (TCon c ts)    = TCon c $ apply s <$> ts
+  apply s (t1 `TArr` t2) = apply s t1 `TArr` apply s t2
 
----- We have this nice function type inference, why not use it?
----- typeInfer (IfThenElse c t e) env = 
-----   typeInfer iteAppArgs iteAppEnv
-----     where
-----       iteAppArgs :: Expr 
-----       iteAppArgs =
-----         App (App (App itename c) t) e
-----       iteAppEnv :: Env
-----       iteAppEnv = 
-----         let newTyvar = getFreshTyVar env in
-----             ((itename,Arrow Boolean (Arrow newTyvar (Arrow newTyvar newTyvar))):env)
-----       itename = getFreshVar env
+  ftv TConst{}       = Set.empty
+  ftv (TVar a)       = Set.singleton a
+  ftv (TCon _ ts)    = foldr (\x s -> ftv x `Set.union` s) Set.empty ts
+  ftv (t1 `TArr` t2) = ftv t1 `Set.union` ftv t2
+
+instance Substitutable Scheme where
+  apply s (Forall as t)   = Forall as $ apply s' t
+                            where s' = foldr Map.delete s as
+  ftv (Forall as t) = ftv t `Set.difference` Set.fromList as
+
+instance Substitutable a => Substitutable [a] where
+  apply = fmap . apply
+  ftv   = foldr (Set.union . ftv) Set.empty
+
+instance Substitutable TypeEnv where
+  apply s (TypeEnv env) =  TypeEnv $ Map.map (apply s) env
+  ftv (TypeEnv env) = ftv $ Map.elems env
+
+-- TODO: move this into a standard library
+defaultConstructorTypes :: Map.Map String Scheme
+defaultConstructorTypes = Map.fromList [("True",Forall [] $ TConst "Bool"),("False",Forall [] $ TConst "Bool"), 
+  ("Cons", Forall [TV "a"] $ TArr (TVar (TV "a")) (TCon "Maybe" [TVar (TV "a")])), ("Nil", Forall [TV "a"] $ TCon "Maybe" [TVar (TV "a")])]
+
+extend :: TypeEnv -> (String, Scheme) -> TypeEnv
+extend (TypeEnv env) (x, s) = TypeEnv $ Map.insert x s env
   
+fresh :: Infer Type
+fresh = do
+  s <- get
+  put s{count = count s + 1 }
+  return $ TVar $ TV (show $ count s)
 
---typeInfer (Char _) env = return (env, Character)
---typeInfer (Int _) env  = return (env, Integer)
+occursCheck ::  Substitutable a => TVar -> a -> Bool
+occursCheck a t = a `Set.member` ftv t
 
-----helper functions
-----assumes ($1,_) `elem` $3
---addArg :: Expr -> Type -> Env -> Env
---addArg (App f _) t env = addArg f t env
----- this is such a terrible hack. 
---addArg (Lam x b) t env = 
---  let oldType = getType env (Lam x b) in
---      replaceType env (Lam x b) (update oldType t) 
---        where 
---          update :: Type -> Type -> Type
---          update (Arrow x y) t = Arrow x (update y t)
---          update x           t = Arrow t x
---addArg (Var x ) t env = 
---  let oldType = getType env (Var x) in
---      replaceType env (Var x) (update oldType t) 
---        where 
---          update :: Type -> Type -> Type
---          update (Arrow x y) t = Arrow x (update y t)
---          update x           t = Arrow t x
---addArg _ _ _ = error "misapplication of addArg"
 
---isTyvar :: Type -> Bool
---isTyvar (Tyvar _) = True
---isTyvar _         = False
+bind ::  TVar -> Type -> Infer Subst
+bind a t | t == TVar a     = return nullSubst
+         | occursCheck a t = throwError $ InfiniteType a t
+         | otherwise       = return $ Map.singleton a t
 
---isInEnv :: Env -> Expr -> Bool
---isInEnv env expr = 
---  case filter (\(x,_) -> x == expr) env of
---    [] -> False
---    _  -> True
+unify :: Type -> Type -> Infer Subst
+unify (l `TArr` r) (l' `TArr` r') = do
+  s1 <- l `unify` l'
+  s2 <- apply s1 r `unify` apply s1 r'
+  return (s2 `compose` s1)
+unify (TConst a) (TConst a') | a == a' =  pure nullSubst 
+unify (TCon c a) (TCon c' a') | c == c' = foldM (\s (ts,ts') -> (apply s ts `unify` apply s ts') >>= \s' -> pure $ s' `compose` s ) nullSubst $ zip a a'
+unify (TVar a) t = bind a t
+unify t (TVar a) = bind a t
+unify t t' =  throwError $ UnificationFail t t'
 
---getType :: Env -> Expr -> Type 
---getType env expr = 
---  snd $ head $ filter (\(x,_) -> x == expr) env
+instantiate ::  Scheme -> Infer Type
+instantiate (Forall as t) = do
+  as' <- mapM (const fresh) as
+  let s = Map.fromList $ zip as as'
+  return $ apply s t
 
-----substitute $1 with $2 in $3
---typeSub :: Type -> Type -> Type -> Type
---typeSub t t' (Arrow x y) = 
---  Arrow (typeSub t t' x) (typeSub t t' y)
---typeSub t t' t'' = if t == t'' then t' else t''
+generalize :: TypeEnv -> Type -> Scheme
+generalize env t  = Forall as t
+    where as = Set.toList $ ftv t `Set.difference` ftv env
 
---getTyvarString :: Type  -> Maybe Char
---getTyvarString (Tyvar x) = Just x
---getTyvarString _         = Nothing
+lookupEnv :: TypeEnv -> String -> Infer (Subst, Type)
+lookupEnv (TypeEnv env) x = 
+  case Map.lookup x env of
+    Nothing -> throwError $ UnboundVariable (show x)
+    Just s  -> instantiate s >>= \t -> return (nullSubst, t)
 
---getFreshTyVar :: Env -> Type
---getFreshTyVar e = 
---  Tyvar larger 
---    where
---      -- succ '`' == 'a'
---      larger = succ $ foldl' max '`' $ mapMaybe (getTyvarString . snd) e
---getFreshVar :: Env -> Expr
---getFreshVar env = 
---  let vars = filter isVar env in
---      Var (foldl' longest "f" (map (\(Var x,_) -> x) vars) ++ "'")
---    where
---      isVar (Var _,_) = True
---      isVar _       = False
---      longest :: String -> String -> String
---      longest x y = if length x > length y then x else y
 
-  
-  
+infer :: TypeEnv -> Expr -> Infer (Subst, Type)
+infer env = \case 
+    Var x -> lookupEnv env x
+    Int _  -> return (nullSubst, TConst "Int")
+    Char _  -> return (nullSubst, TConst "Char")
+    Lam x e ->  do
+      tv <- fresh
+      let env' = env `extend` (x, Forall [] tv)
+      (s1, t1) <- infer env' e
+      return (s1, apply s1 tv `TArr` t1)
+    App e1 e2 -> do
+      tv <- fresh
+      (s1, t1) <- infer env e1
+      (s2, t2) <- infer (apply s1 env) e2
+      s3       <- unify (apply s2 t1) (TArr t2 tv)
+      return (s3 `compose` s2 `compose` s1, apply s3 tv)
+    Let x e1 e2 -> do
+      (s1, t1) <- infer env e1
+      let env' = apply s1 env
+          t'   = generalize env' t1
+      (s2, t2) <- infer (env' `extend` (x, t')) e2
+      return (s1 `compose` s2, t2)
+    Match e os -> do
+      (s1, t1) <- infer env e
+      --TODO typecheck the patterns
+      let es = map snd os
+      -- get type/subsitution from unifying each branch together
+      (s2,t2) <- foldM (\(s,t) b -> infer (apply s env) b >>= \(s',t') -> unify (apply s' t) t' >>= \s'' -> return (s'', apply s'' t')) (s1,t1) es
+      s3 <- unify (apply s2 t1) t2
+      return (s3 `compose` s2 `compose` s1,t2)
+    Con c bs -> 
+      infer env $ foldl App (Var c) bs
+      -- infer env $ foldr App (Var c) bs 
 
---replaceType :: Env -> Expr -> Type -> Env
---replaceType env expr t = 
---  map (\(ex,ty) -> if ex==expr then (ex,t) else (ex,ty)) env
-
---ti :: Expr -> Env -> Maybe Type
---ti expr env  = 
---  case typeInfer expr env of 
---    Left   _     -> Nothing
---    Right (_,ty) -> Just ty
-
----- for testing
---testEnv :: Env
---testEnv = [(Var "+", Arrow Integer (Arrow Integer Integer)), (Var "y", Integer)]
---polyTestEnv :: Env
---polyTestEnv = [(Var "first", Arrow (Tyvar 'a') (Arrow (Tyvar 'b') (Tyvar 'a'))), (Var "y", Integer)]
-
---testLetExpr :: Expr
---testLetExpr = Let "f" (Lam "x" (Var "x")) (App (Var "f") (Int 2))
-
---letEnv :: Env
---letEnv = [(Var "ici", Arrow Integer (Arrow Character Integer)), (Var "y", Integer)]
-
---testLetExpr2 :: Expr
---testLetExpr2 = Let "f" (Lam "x" (Var "x")) (App (App (Var "ici") (App (Var "f") (Int 2))) (App (Var "f") (Char 'l')))
-
----- no longer wrong! :), used to infer to 'a, now infers to Integer
---wrong :: Expr
---wrong = App (Lam "x" (App (App (Var "x") (Int 1)) (Int 2))) (Var "+")
---wrong' :: Expr
---wrong' = Lam "x" (App (App (Var "x") (Int 1)) (Int 2))
-
---letrecTest :: Expr
---letrecTest = Let "f" (Lam "x" (App (Var "f") (Var "x"))) (App (Var "f") (Int 2))
+    -- If cond tr fl -> do
+    --   (s1, t1) <- infer env cond
+    --   (s2, t2) <- infer env tr
+    --   (s3, t3) <- infer env fl
+    --   s4 <- unify t1 typeBool
+    --   s5 <- unify t2 t3
+    --   return (s5 `compose` s4 `compose` s3 `compose` s2 `compose` s1, apply s5 t2)
