@@ -1,8 +1,9 @@
+{-# LANGUAGE StrictData #-}
 module Expr where
 
 type Constructor = String
 
-data Atom = AInt Integer | AChar Char
+data Atom = AInt Int | AChar Char
     deriving (Eq)
 
 data Pattern = 
@@ -13,13 +14,19 @@ data Pattern =
     deriving (Eq)
 
 data Expr = 
-  Int Integer
+  --Lit
+  Int Int
   | Char Char
+--todo
   | Lam String Expr
+--ext
   | App Expr Expr
   | Let String Expr Expr 
   | Var String
   | Con Constructor [Expr]
+-- easy
+  | If Expr Expr Expr
+--hm
   | Match Expr [(Pattern,Expr)]
   deriving Eq
 
@@ -30,6 +37,7 @@ instance Show Expr where
   show (Lam x b)      = "(λ"++ x ++ " -> " ++ show b ++ ")"
   show (App e e')     = "(" ++  show e ++ " " ++ show e' ++ ")"
   show (Let f e b)    = "let " ++ f ++ " = " ++ show e ++ " in " ++ show b
+  show (If f e b)     = "if " ++ show f ++ " then " ++ show e ++ " else " ++ show b
   show (Var string)   = string
   show (Con cnstr l)  = "(" ++ cnstr ++ concatMap ( (' ':) . show ) l ++ ")"
   show (Match expr p) = "(match " ++ show expr ++ " with\n" ++ concatMap printPatternPair p

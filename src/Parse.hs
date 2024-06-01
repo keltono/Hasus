@@ -1,9 +1,10 @@
-{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE StrictData #-}
 module Parse where 
 import Expr
 import Text.Parsec
 import Text.Parsec.Expr
 import Data.Functor (($>))
+import Data.List (foldl')
 import Control.Applicative (liftA2)
 -- import System.IO.Unsafe (unsafePerformIO)
 import Control.Monad.Identity
@@ -13,25 +14,43 @@ import Control.Monad.Identity
 -- add mutually recursive defs/lets
 -- add first class list parsing
 
+-- We can get a good amount of information directly from parsing, but not as much as we get from later processing
+-- So it's useful to seperate these types from those used elsewhere
+data ParseType =
+    Integer
+      | Character 
+      | Arrow ParseType ParseType
+      | Constructor String [ParseType]
+      deriving (Show, Eq)
+
+data ParseDecl = 
+     TypeAnnotation String ParseType
+       | FuncDef String [Pattern] Expr
+       deriving Eq
+instance Show ParseDecl where
+    show (TypeAnnotation s p) = s ++ " :: " ++ show p
+    show (FuncDef n ps e) = "def " ++ n ++ " " ++ concatMap show ps ++ " = " ++ show e
+
 ws :: Parsec String u ()
 -- TODO add comments
 -- that was giving me issues for some reason...
 ws = spaces
 
-parseProgram :: Parsec String u [Either (String, Type) (String,Expr)]
+parseProgram :: Parsec String u [ParseDecl]
 parseProgram = many (parseFuncDef <|> parseTypeAnnotation)
 
-
-parseTypeAnnotation :: Parsec String u (Either (String, Type) b)
+parseTypeAnnotation :: Parsec String u ParseDecl
 parseTypeAnnotation = do
+    ws
     name <- parseId 
     ws
     _ <- string "::"
     ws
     ty <- parseType
-    pure $ Left (name,ty)
+    ws
+    pure $ TypeAnnotation name ty
 
-parseType :: Parsec String u Type
+parseType :: Parsec String u ParseType
 parseType = 
     between ws ws
         ((string "Integer" >> pure Integer) 
@@ -47,16 +66,17 @@ parseConstructor = liftA2 (:) upper (many alphaNum)
 
 --TODO ability to define multiple functions at once for mutual recursion
 --TODO arguements (duh)
-parseFuncDef :: Parsec String u (Either a (String, Expr))
+parseFuncDef :: Parsec String u ParseDecl
 parseFuncDef = do
   _ <- string "def" 
   ws
   name <- parseId
-  ws
+  args <- many (ws >> parsePattern)
   _ <- char '='
   ws
   body <- parseExpr
-  pure $ Right (name, body)
+  ws
+  pure $ FuncDef name args body
 
 isKeyword :: String -> Bool
 isKeyword = flip elem ["in","λ","let","letrec","if","then","else", "match", "with", "def"]
@@ -108,11 +128,12 @@ parsePattern :: Parsec String u Pattern
 parsePattern = 
     ws *> ( 
         (char '_' >> pure PWild) <|> 
-        (char '[' >> foldl (\x y -> PCon "Cons" [y,x]) (PCon "Nil" []) <$> (parsePattern `sepBy` (ws >> char ',' >> ws)) <* char ']') <|>
+        (char '[' >> foldl' (\x y -> PCon "Cons" [y,x]) (PCon "Nil" []) <$> (parsePattern `sepBy` (ws >> char ',' >> ws)) <* char ']') <|>
         (PAtom . AInt <$> (read <$> many1 digit)) <|>
         (PAtom . AChar <$> between (char '\'') (char '\'') (noneOf "\'")) <|>
         (liftA2 (:) upper (many alphaNum) >>= \c -> ws >> many parsePattern >>= \a -> pure $ PCon c a) <|>
-        (PVar <$> parseId) 
+        (PVar <$> parseId) <|>
+        (between (char '(') (char ')') parsePattern)
          ) <* ws
 
 parseMatch :: Parsec String u Expr
